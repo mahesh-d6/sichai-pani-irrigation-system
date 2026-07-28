@@ -33,6 +33,16 @@ from .auth import hash_password
 
 Base.metadata.create_all(bind=engine)
 
+# Security response headers middleware
+@app.middleware("http")
+async def add_security_headers(request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    return response
+
 def auto_seed():
     db = SessionLocal()
     try:
@@ -50,12 +60,6 @@ def auto_seed():
                 locked_until=None,
             )
             db.add(admin)
-        else:
-            # Ensure password is reset to Admin@123 and unlock account
-            admin.hashed_password = hash_password("Admin@123")
-            admin.is_active = True
-            admin.failed_login_attempts = 0
-            admin.locked_until = None
 
         operator = db.query(models.User).filter(models.User.email == "operator@sichaipani.com").first()
         if not operator:
@@ -71,11 +75,6 @@ def auto_seed():
                 locked_until=None,
             )
             db.add(operator)
-        else:
-            operator.hashed_password = hash_password("Operator@123")
-            operator.is_active = True
-            operator.failed_login_attempts = 0
-            operator.locked_until = None
 
         if db.query(models.Canal).count() == 0:
             canal = models.Canal(name="Main Canal North", location="Sector 4")
@@ -85,7 +84,7 @@ def auto_seed():
             db.add(pump)
 
         db.commit()
-        print("[sichai-pani] Default accounts verified, reset & active.")
+        print("[sichai-pani] Default accounts verified & active.")
     except Exception as e:
         print(f"[sichai-pani] Auto-seed warning: {e}")
     finally:
