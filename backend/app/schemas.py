@@ -359,8 +359,23 @@ class NotificationOut(BaseModel):
     created_at: dt.datetime
 
 
-# ---------- Settings ----------
+# ---------- Settings & Announcements ----------
 
 class SettingUpdate(BaseModel):
     key: str
     value: str
+
+
+class AnnouncementCreate(BaseModel):
+    text_en: str
+    text_ne: str
+
+
+class AnnouncementOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    text_en: str
+    text_ne: str
+    is_active: bool
+    created_at: dt.datetime
+

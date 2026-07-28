@@ -511,33 +511,11 @@ def google_login(payload: schemas.GoogleLoginRequest, request: Request, db: Sess
     if not user and email:
         user = db.query(models.User).filter(models.User.email == email, role_to_filter[payload.role]).first()
 
-    # Auto-register Admin account on Google login if admin slot is available
-    if not user and email and payload.role == "admin":
-        admin_count = db.query(models.User).filter(models.User.role.in_(list(ADMIN_ROLES))).count()
-        if admin_count < settings.max_admin_accounts:
-            user_role = models.UserRole.super_admin if admin_count == 0 else models.UserRole.admin
-            user = models.User(
-                full_name=full_name,
-                email=email,
-                google_id=google_id,
-                photo_url=picture,
-                role=user_role,
-                is_email_verified=True,
-                is_active=True,
-            )
-            db.add(user)
-            db.commit()
-            db.refresh(user)
-
     if not user:
         raise HTTPException(
-            status.HTTP_404_NOT_FOUND,
-            f"No {role_label[payload.role]} account is linked to this Google account ({email or google_id}). "
-            + (
-                "Register as Admin first, or ask an existing Admin to add your Gmail to your account."
-                if payload.role == "admin"
-                else f"Ask your Admin to create your {role_label[payload.role]} account with this same email first."
-            ),
+            status.HTTP_403_FORBIDDEN,
+            f"Access denied. No {role_label[payload.role]} account is linked to this Google email ({email or google_id}). "
+            "Only pre-authorized accounts can sign in via Google.",
         )
 
     if not user.is_active:

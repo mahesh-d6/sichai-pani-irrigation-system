@@ -9,6 +9,7 @@ from ..deps import get_current_user, require_roles, ADMIN_ROLES, STAFF_ROLES
 settings_router = APIRouter(prefix="/api/settings", tags=["settings"])
 infra_router = APIRouter(prefix="/api/infra", tags=["canals-pumps"])
 notifications_router = APIRouter(prefix="/api/notifications", tags=["notifications"])
+announcements_router = APIRouter(prefix="/api/announcements", tags=["announcements"])
 
 
 # ---------- Settings ----------
@@ -92,3 +93,30 @@ def mark_all_read(db: Session = Depends(get_db), current_user: models.User = Dep
     ).update({"is_read": True})
     db.commit()
     return {"message": "all marked read"}
+
+
+# ---------- Announcements ----------
+
+@announcements_router.get("", response_model=List[schemas.AnnouncementOut])
+def list_announcements(db: Session = Depends(get_db)):
+    return db.query(models.Announcement).filter(models.Announcement.is_active.is_(True)).order_by(models.Announcement.id.desc()).all()
+
+
+@announcements_router.post("", response_model=schemas.AnnouncementOut, status_code=201)
+def create_announcement(payload: schemas.AnnouncementCreate, db: Session = Depends(get_db), _=Depends(require_roles(*STAFF_ROLES))):
+    announcement = models.Announcement(text_en=payload.text_en, text_ne=payload.text_ne)
+    db.add(announcement)
+    db.commit()
+    db.refresh(announcement)
+    return announcement
+
+
+@announcements_router.delete("/{announcement_id}")
+def delete_announcement(announcement_id: int, db: Session = Depends(get_db), _=Depends(require_roles(*STAFF_ROLES))):
+    ann = db.query(models.Announcement).filter(models.Announcement.id == announcement_id).first()
+    if not ann:
+        raise HTTPException(404, "Announcement not found")
+    ann.is_active = False
+    db.commit()
+    return {"message": "Announcement deleted"}
+

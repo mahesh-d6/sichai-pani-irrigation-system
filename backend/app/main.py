@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from .database import Base, engine
 from . import models  # noqa: F401  (ensures models are registered on Base)
 from .routers import auth, users, farmers, requests, payments, complaints, dashboard, reports
-from .routers.misc import settings_router, infra_router, notifications_router
+from .routers.misc import settings_router, infra_router, notifications_router, announcements_router
 from .config import settings
 
 app = FastAPI(
@@ -107,6 +107,7 @@ app.include_router(reports.router)
 app.include_router(settings_router)
 app.include_router(infra_router)
 app.include_router(notifications_router)
+app.include_router(announcements_router)
 
 
 @app.get("/api/health")
