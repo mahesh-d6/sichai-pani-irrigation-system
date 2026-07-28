@@ -41,6 +41,8 @@ def list_farmers(
     return q.order_by(models.Farmer.id.desc()).all()
 
 
+from sqlalchemy.exc import IntegrityError
+
 @router.post("", response_model=schemas.FarmerOut, status_code=201)
 def create_farmer(
     payload: schemas.FarmerCreateByAdmin,
@@ -55,57 +57,77 @@ def create_farmer(
     """
     normalized_username = normalize_username(payload.username)
     if db.query(models.User).filter(models.User.username == normalized_username).first():
-        raise HTTPException(400, "That username is already taken")
-    if payload.email and db.query(models.User).filter(models.User.email == payload.email).first():
-        raise HTTPException(400, "An account with this email already exists")
+        raise HTTPException(400, f"The username '{normalized_username}' is already taken. Please choose another username.")
+    
+    clean_email = payload.email.strip().lower() if (payload.email and payload.email.strip()) else None
+    if clean_email and db.query(models.User).filter(models.User.email == clean_email).first():
+        raise HTTPException(400, f"An account with email '{clean_email}' already exists.")
+
+    clean_mobile = payload.mobile_number.strip()
+    if clean_mobile and db.query(models.User).filter(models.User.mobile_number == clean_mobile).first():
+        raise HTTPException(400, f"An account with mobile number '{clean_mobile}' already exists.")
 
     validate_strong_password(payload.temp_password)
 
     def norm(a: str) -> str:
-        return a.strip().lower()
+        return (a or "answer").strip().lower()
+
+    q1 = payload.security_question_1 or "What is your Name?"
+    q2 = payload.security_question_2 or "What is your Village?"
+    q3 = payload.security_question_3 or "What is your Crop?"
 
     user = models.User(
-        full_name=payload.full_name,
+        full_name=payload.full_name.strip(),
         username=normalized_username,
-        email=payload.email,
-        mobile_number=payload.mobile_number,
+        email=clean_email,
+        mobile_number=clean_mobile,
         hashed_password=hash_password(payload.temp_password),
         role=models.UserRole.farmer,
         must_change_password=True,
-        security_question_1=payload.security_question_1,
+        security_question_1=q1,
         security_answer_1_hash=hash_password(norm(payload.security_answer_1)),
-        security_question_2=payload.security_question_2,
+        security_question_2=q2,
         security_answer_2_hash=hash_password(norm(payload.security_answer_2)),
-        security_question_3=payload.security_question_3,
+        security_question_3=q3,
         security_answer_3_hash=hash_password(norm(payload.security_answer_3)),
     )
-    db.add(user)
-    db.commit()
-    db.refresh(user)
+    try:
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+    except IntegrityError as err:
+        db.rollback()
+        err_msg = str(err.orig) if hasattr(err, "orig") else str(err)
+        if "username" in err_msg.lower():
+            raise HTTPException(400, f"Username '{normalized_username}' is already taken.")
+        if "mobile" in err_msg.lower() or "phone" in err_msg.lower():
+            raise HTTPException(400, f"Mobile number '{clean_mobile}' is already registered.")
+        if "email" in err_msg.lower():
+            raise HTTPException(400, f"Email address '{clean_email}' is already registered.")
+        raise HTTPException(400, f"Could not create user: {err_msg}")
 
-    # farmer_code is derived from MAX(id)+1 rather than a row COUNT, since
-    # COUNT regresses after any delete and can then collide with a code
-    # already in use by a surviving farmer (e.g. delete #1 of 4, add a new
-    # one -> COUNT gives 4 again, reissuing FARM-00004 which farmer #4
-    # already has). id is monotonic and never reused, so MAX(id)+1 can't
-    # collide with an existing code the way COUNT can.
     from sqlalchemy import func
     next_id = (db.query(func.max(models.Farmer.id)).scalar() or 0) + 1
     farmer = models.Farmer(
         user_id=user.id,
         farmer_code=f"FARM-{next_id:05d}",
-        full_name=payload.full_name,
-        father_name=payload.father_name,
-        mobile_number=payload.mobile_number,
-        email=payload.email,
-        address=payload.address,
-        village=payload.village,
+        full_name=payload.full_name.strip(),
+        father_name=payload.father_name.strip() if payload.father_name else None,
+        mobile_number=clean_mobile,
+        email=clean_email,
+        address=payload.address.strip() if payload.address else None,
+        village=payload.village.strip() if payload.village else None,
         land_area=payload.land_area,
-        crop_type=payload.crop_type,
+        crop_type=payload.crop_type.strip() if payload.crop_type else None,
     )
-    db.add(farmer)
-    db.commit()
-    db.refresh(farmer)
+    try:
+        db.add(farmer)
+        db.commit()
+        db.refresh(farmer)
+    except IntegrityError as err:
+        db.rollback()
+        raise HTTPException(400, "Could not save farmer profile due to duplicate code or database constraint.")
+    
     return farmer
 
 

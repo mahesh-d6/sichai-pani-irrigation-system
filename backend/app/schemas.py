@@ -128,12 +128,12 @@ class FarmerCreateByAdmin(BaseModel):
     full_name: str
     mobile_number: str
     temp_password: str
-    security_question_1: str
-    security_answer_1: str
-    security_question_2: str
-    security_answer_2: str
-    security_question_3: str
-    security_answer_3: str
+    security_question_1: Optional[str] = "What is your Name?"
+    security_answer_1: Optional[str] = "farmer"
+    security_question_2: Optional[str] = "What is your Village?"
+    security_answer_2: Optional[str] = "village"
+    security_question_3: Optional[str] = "What is your Crop?"
+    security_answer_3: Optional[str] = "crop"
     father_name: Optional[str] = None
     email: Optional[str] = None
     address: Optional[str] = None
