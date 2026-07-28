@@ -35,8 +35,9 @@ Base.metadata.create_all(bind=engine)
 def auto_seed():
     db = SessionLocal()
     try:
-        if db.query(models.User).count() == 0:
-            print("[sichai-pani] Auto-seeding initial admin & operator accounts...")
+        admin = db.query(models.User).filter(models.User.email == "admin@sichaipani.com").first()
+        if not admin:
+            print("[sichai-pani] Creating default admin account (admin@sichaipani.com)...")
             admin = models.User(
                 full_name="System Admin",
                 email="admin@sichaipani.com",
@@ -44,6 +45,15 @@ def auto_seed():
                 role=models.UserRole.super_admin,
                 is_email_verified=True,
             )
+            db.add(admin)
+        else:
+            # Ensure password is reset to Admin@123 if previously invalid
+            admin.hashed_password = hash_password("Admin@123")
+            admin.is_active = True
+
+        operator = db.query(models.User).filter(models.User.email == "operator@sichaipani.com").first()
+        if not operator:
+            print("[sichai-pani] Creating default operator account (operator@sichaipani.com)...")
             operator = models.User(
                 full_name="Ramesh Operator",
                 email="operator@sichaipani.com",
@@ -51,17 +61,20 @@ def auto_seed():
                 role=models.UserRole.water_operator,
                 is_email_verified=True,
             )
-            db.add_all([admin, operator])
-            db.commit()
+            db.add(operator)
+        else:
+            operator.hashed_password = hash_password("Operator@123")
+            operator.is_active = True
 
+        if db.query(models.Canal).count() == 0:
             canal = models.Canal(name="Main Canal North", location="Sector 4")
             db.add(canal)
             db.commit()
-
             pump = models.Pump(name="Pump Station A", canal_id=canal.id)
             db.add(pump)
-            db.commit()
-            print("[sichai-pani] Auto-seed complete.")
+
+        db.commit()
+        print("[sichai-pani] Default accounts verified & active.")
     except Exception as e:
         print(f"[sichai-pani] Auto-seed warning: {e}")
     finally:
