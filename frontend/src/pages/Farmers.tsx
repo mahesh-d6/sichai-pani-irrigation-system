@@ -51,12 +51,30 @@ export default function Farmers() {
     setFormError("");
     setSubmitting(true);
     try {
-      await api.post("/api/farmers", { ...data, land_area: data.land_area ? Number(data.land_area) : undefined });
+      const payload = { ...data };
+      if (!payload.email || !payload.email.trim()) {
+        delete payload.email;
+      } else {
+        payload.email = payload.email.trim();
+      }
+      if (!payload.land_area) {
+        delete payload.land_area;
+      } else {
+        payload.land_area = Number(payload.land_area);
+      }
+      await api.post("/api/farmers", payload);
       reset();
       setShowForm(false);
       load();
     } catch (err: any) {
-      setFormError(err?.response?.data?.detail || "Could not save this farmer. Please check the fields and try again.");
+      let msg = "Could not save this farmer. Please check the fields and try again.";
+      const detail = err?.response?.data?.detail;
+      if (typeof detail === "string") {
+        msg = detail;
+      } else if (Array.isArray(detail)) {
+        msg = detail.map((d: any) => `${d.loc?.[d.loc?.length - 1] || "Field"}: ${d.msg}`).join(", ");
+      }
+      setFormError(msg);
     } finally {
       setSubmitting(false);
     }

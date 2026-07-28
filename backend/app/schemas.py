@@ -135,11 +135,18 @@ class FarmerCreateByAdmin(BaseModel):
     security_question_3: str
     security_answer_3: str
     father_name: Optional[str] = None
-    email: Optional[EmailStr] = None
+    email: Optional[str] = None
     address: Optional[str] = None
     village: Optional[str] = None
     land_area: Optional[float] = None
     crop_type: Optional[str] = None
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def empty_str_to_none(cls, v):
+        if not v or not str(v).strip():
+            return None
+        return v.strip().lower()
 
 
 class ForceChangePasswordRequest(BaseModel):

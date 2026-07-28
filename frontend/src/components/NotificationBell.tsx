@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Bell, Check, CheckCheck } from "lucide-react";
 import api from "../services/api";
+import { requestNotificationPermission, sendDeviceNotification } from "../services/deviceNotification";
 
 interface Notification {
   id: number;
@@ -21,20 +22,32 @@ function timeAgo(iso: string) {
   return `${Math.floor(hours / 24)}d ago`;
 }
 
-// One bell, used by every role: a farmer's new water request notifies
-// Admin + Operator, a new complaint or payment-awaiting-verification
-// notifies Admin, and a new sign-in notifies that same Admin account --
-// all through this same list, polled quietly in the background.
 export default function NotificationBell() {
   const [items, setItems] = useState<Notification[]>([]);
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const lastKnownIdRef = useRef<number>(0);
 
   const load = () => {
-    api.get("/api/notifications").then((r) => setItems(r.data)).catch(() => {});
+    api.get("/api/notifications").then((r) => {
+      if (Array.isArray(r.data)) {
+        const fetched: Notification[] = r.data;
+        if (lastKnownIdRef.current > 0) {
+          const newest = fetched.filter((n) => n.id > lastKnownIdRef.current && !n.is_read);
+          newest.forEach((n) => {
+            sendDeviceNotification(`Sichai Pani: ${n.title}`, n.message);
+          });
+        }
+        if (fetched.length > 0) {
+          lastKnownIdRef.current = Math.max(...fetched.map((n) => n.id));
+        }
+        setItems(fetched);
+      }
+    }).catch(() => {});
   };
 
   useEffect(() => {
+    requestNotificationPermission();
     load();
     const interval = setInterval(load, 15000);
     return () => clearInterval(interval);

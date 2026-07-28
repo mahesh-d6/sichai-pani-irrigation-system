@@ -2,6 +2,7 @@ import { useState } from "react";
 import { OctagonAlert, ShieldAlert, CheckCircle2 } from "lucide-react";
 import { useLanguage } from "../context/LanguageContext";
 import api from "../services/api";
+import { sendDeviceNotification } from "../services/deviceNotification";
 
 interface EmergencyShutdownModalProps {
   isOpen: boolean;
@@ -20,8 +21,8 @@ export default function EmergencyShutdownModal({ isOpen, onClose, onSuccess }: E
   const handleShutdown = async () => {
     setLoading(true);
     try {
-      // Emergency trigger post
       await api.post("/api/infra/emergency-shutdown", { reason: reason || "Emergency Shutdown Triggered" }).catch(() => {});
+      sendDeviceNotification("⚠️ EMERGENCY WATER SHUTDOWN", reason || "All irrigation pumps and canal flow have been halted immediately.");
       setDone(true);
       setTimeout(() => {
         setDone(false);
