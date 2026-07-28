@@ -27,12 +27,17 @@ interface ChartPoint {
   value: number;
 }
 
+import WeatherWidget from "../components/WeatherWidget";
+import EmergencyShutdownModal from "../components/EmergencyShutdownModal";
+import { OctagonAlert } from "lucide-react";
+
 export default function Dashboard() {
   const { user } = useAuth();
   const { t } = useLanguage();
   const [stats, setStats] = useState<Stats | null>(null);
   const [waterUsage, setWaterUsage] = useState<ChartPoint[]>([]);
   const [revenue, setRevenue] = useState<ChartPoint[]>([]);
+  const [emergencyModalOpen, setEmergencyModalOpen] = useState(false);
 
   useEffect(() => {
     api.get("/api/dashboard/stats").then((r) => setStats(r.data)).catch(() => {});
@@ -44,10 +49,25 @@ export default function Dashboard() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="lg:hidden">
-        <p className="text-sm text-canal-600 dark:text-canal-300">{t("welcome_back")}</p>
-        <h1 className="font-display text-xl font-semibold">{user?.full_name}</h1>
+      <div className="flex items-center justify-between">
+        <div className="lg:hidden">
+          <p className="text-sm text-canal-600 dark:text-canal-300">{t("welcome_back")}</p>
+          <h1 className="font-display text-xl font-semibold">{user?.full_name}</h1>
+        </div>
+
+        {(user?.role === "super_admin" || user?.role === "admin" || user?.role === "water_operator") && (
+          <button
+            onClick={() => setEmergencyModalOpen(true)}
+            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-semibold shadow-md transition-colors ml-auto"
+          >
+            <OctagonAlert size={16} className="animate-pulse" />
+            <span>{t("emergency_shutdown")}</span>
+          </button>
+        )}
       </div>
+
+      {/* Live Weather Forecast & Smart AI Irrigation Advice */}
+      <WeatherWidget />
 
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
         <StatCard index={0} label={t("total_farmers")} value={stats ? String(stats.total_farmers) : "…"} icon={Users} accent="canal" />
@@ -95,6 +115,14 @@ export default function Dashboard() {
           </ResponsiveContainer>
         </div>
       </div>
+
+      <EmergencyShutdownModal
+        isOpen={emergencyModalOpen}
+        onClose={() => setEmergencyModalOpen(false)}
+        onSuccess={() => {
+          api.get("/api/dashboard/stats").then((r) => setStats(r.data)).catch(() => {});
+        }}
+      />
     </div>
   );
 }

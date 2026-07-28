@@ -4,6 +4,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Wrench, Mail, Lock, LogIn, ArrowLeft } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { useLanguage } from "../context/LanguageContext";
 import GoogleButton from "../components/GoogleButton";
 
 interface LoginForm {
@@ -13,6 +14,7 @@ interface LoginForm {
 
 export default function OperatorLogin() {
   const { loginOperator, loginWithGoogle } = useAuth();
+  const { t, lang, setLang } = useLanguage();
   const navigate = useNavigate();
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -25,7 +27,7 @@ export default function OperatorLogin() {
       await loginOperator(data.email, data.password);
       navigate("/");
     } catch (e: any) {
-      setError(e?.response?.data?.detail || "Invalid email or password.");
+      setError(e?.response?.data?.detail || t("invalid_credentials"));
     } finally {
       setLoading(false);
     }
@@ -46,36 +48,43 @@ export default function OperatorLogin() {
       <div className="absolute -top-40 -left-40 w-96 h-96 rounded-full bg-canal-300/30 blur-3xl animate-ripple" />
       <div className="absolute -bottom-40 -right-40 w-96 h-96 rounded-full bg-paddy-300/30 blur-3xl animate-ripple" />
 
+      <button
+        onClick={() => setLang(lang === "en" ? "ne" : "en")}
+        className="absolute top-5 right-5 z-20 glass rounded-full px-3 py-1.5 text-xs font-semibold hover:bg-white/90 transition-colors shadow-sm"
+      >
+        {lang === "en" ? "नेपाली" : "English"}
+      </button>
+
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="glass-strong rounded-3xl p-8 w-full max-w-md relative z-10"
+        className="glass-strong rounded-3xl p-8 w-full max-w-md relative z-10 shadow-xl"
       >
-        <Link to="/login" className="flex items-center gap-1.5 text-xs text-canal-500 hover:text-canal-700 mb-4">
-          <ArrowLeft size={13} /> Back
+        <Link to="/login" className="flex items-center gap-1.5 text-xs text-canal-500 hover:text-canal-700 mb-4 font-medium">
+          <ArrowLeft size={13} /> {t("back")}
         </Link>
 
         <div className="flex flex-col items-center mb-8">
           <div className="w-14 h-14 rounded-2xl bg-earth-800 flex items-center justify-center mb-3 shadow-lg">
             <Wrench className="text-white" size={28} />
           </div>
-          <h1 className="font-display text-2xl font-semibold">Operator</h1>
-          <p className="text-sm text-canal-600 dark:text-canal-300">Sign in to start/stop water delivery</p>
+          <h1 className="font-display text-2xl font-semibold text-earth-900 dark:text-canal-50">{t("operator_login_title")}</h1>
+          <p className="text-sm text-canal-600 dark:text-canal-300">{t("operator_login_subtitle")}</p>
         </div>
 
         <div className="flex flex-col items-center gap-4 mb-6">
           <GoogleButton onCredential={handleGoogleCredential} onError={setError} />
           <div className="flex items-center gap-3 w-full">
             <div className="h-px bg-canal-200 dark:bg-canal-700 flex-1" />
-            <span className="text-xs text-canal-400">or sign in with email</span>
+            <span className="text-xs text-canal-400 font-medium">{t("or_sign_in_with_email")}</span>
             <div className="h-px bg-canal-200 dark:bg-canal-700 flex-1" />
           </div>
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
           <div>
-            <label className="text-sm font-medium mb-1 block">Email</label>
+            <label className="text-sm font-medium mb-1 block">{t("gmail_address")}</label>
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-canal-400" size={18} />
               <input
@@ -89,7 +98,7 @@ export default function OperatorLogin() {
           </div>
 
           <div>
-            <label className="text-sm font-medium mb-1 block">Password</label>
+            <label className="text-sm font-medium mb-1 block">{t("password")}</label>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-canal-400" size={18} />
               <input
@@ -107,10 +116,10 @@ export default function OperatorLogin() {
           <button
             type="submit"
             disabled={loading}
-            className="flex items-center justify-center gap-2 bg-earth-800 hover:bg-earth-900 text-white font-medium rounded-xl py-2.5 transition-colors disabled:opacity-60"
+            className="flex items-center justify-center gap-2 bg-earth-800 hover:bg-earth-900 text-white font-medium rounded-xl py-2.5 transition-colors disabled:opacity-60 shadow-md"
           >
             <LogIn size={18} />
-            {loading ? "Signing in..." : "Sign In"}
+            {loading ? t("signing_in") : t("sign_in")}
           </button>
         </form>
       </motion.div>

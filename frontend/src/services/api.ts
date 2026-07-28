@@ -1,6 +1,21 @@
 import axios from "axios";
 
-export const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+// Dynamically determine the backend URL
+const getBaseUrl = () => {
+  const envUrl = import.meta.env.VITE_API_URL;
+  // If explicitly configured with a remote production API URL, use it
+  if (envUrl && !envUrl.includes("localhost") && !envUrl.includes("127.0.0.1")) {
+    return envUrl;
+  }
+  // If running in production (e.g. deployed on Render static site)
+  if (import.meta.env.PROD) {
+    return "https://sichai-pani-irrigation-system.onrender.com";
+  }
+  // Local development fallback
+  return envUrl || "http://127.0.0.1:8001";
+};
+
+export const API_BASE_URL = getBaseUrl();
 
 export const api = axios.create({
   baseURL: API_BASE_URL,

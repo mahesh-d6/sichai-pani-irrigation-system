@@ -2,11 +2,9 @@ export type Lang = "en" | "ne";
 
 export const translations = {
   en: {
-    // App
+    // App & Nav
     app_name: "Sichai Pani",
     app_tagline: "Irrigation Management System",
-
-    // Nav
     nav_dashboard: "Dashboard",
     nav_farmers: "Farmers",
     nav_requests: "Water Requests",
@@ -16,24 +14,43 @@ export const translations = {
     nav_settings: "Settings",
     dark_mode: "Dark Mode",
     light_mode: "Light Mode",
-    logout: "Logout",
+    logout: "Sign Out",
+    logout_all_devices: "Log Out Other Devices",
     welcome_back: "Welcome back,",
+    back: "Back",
+    back_to_signin: "Back to Sign In",
 
-    // Login (staff)
+    // Role Select Page
+    choose_signin_mode: "Choose how you'd like to sign in",
+    admin_role_title: "Admin (Adaksha)",
+    admin_role_subtitle: "Approve payments, manage farmers, complaints & reports",
+    operator_role_title: "Operator",
+    operator_role_subtitle: "Start and stop water delivery for requests",
+    farmer_role_title: "Farmer",
+    farmer_role_subtitle: "Request water, file complaints, make payments",
+
+    // Login (staff & admin)
     staff_login_title: "Staff Sign In",
     staff_login_subtitle: "For Admins and Water Operators",
+    admin_login_title: "Admin (Adaksha) Sign In",
+    admin_login_subtitle: "Sign in with your email address",
+    operator_login_title: "Operator Sign In",
+    operator_login_subtitle: "Manage water pumps and irrigation schedule",
+    gmail_address: "Email Address",
     email_or_mobile: "Email or Mobile Number",
     password: "Password",
     remember_me: "Remember me",
     sign_in: "Sign In",
     signing_in: "Signing in...",
+    continue_with_google: "Continue with Google",
     or_sign_in_with_email: "or sign in with email",
     invalid_credentials: "Invalid credentials. Please try again.",
     are_you_farmer: "Are you a farmer?",
     farmer_login_link: "Go to Farmer Login",
-    demo_admin_hint: "Demo admin: admin@sichaipani.com / Admin@123",
+    no_admin_account: "No admin account yet?",
+    register_admin: "Register Admin",
 
-    // Login (farmer)
+    // Login & Register (farmer)
     farmer_login_title: "Farmer Sign In",
     farmer_login_subtitle: "Request water, track payments, and file complaints",
     login_with_password: "Password",
@@ -47,15 +64,13 @@ export const translations = {
     register_here: "Register here",
     staff_member: "Staff member?",
     staff_login_link: "Go to Staff Login",
-
-    // Farmer register
     farmer_register_title: "Farmer Registration",
     full_name: "Full Name",
     create_password: "Create Password",
     register: "Register",
     already_have_account: "Already have an account?",
 
-    // Dashboard
+    // Dashboard & Widgets
     total_farmers: "Total Farmers",
     active_requests: "Active Requests",
     todays_schedule: "Today's Schedule",
@@ -69,6 +84,15 @@ export const translations = {
     water_usage_chart: "Water Usage (last 14 days)",
     revenue_chart: "Revenue (last 14 days)",
 
+    // Advanced Senior Dev Features
+    emergency_shutdown: "Emergency Shutdown",
+    emergency_killswitch: "Emergency Pump Kill-Switch",
+    weather_forecast: "Live Weather & Advice",
+    smart_irrigation_advice: "Smart Irrigation Recommendation",
+    print_receipt: "Print Receipt",
+    official_receipt: "Official Water Payment Receipt",
+    system_announcements: "Live System Announcements",
+
     // Common
     search: "Search",
     add: "Add",
@@ -78,9 +102,9 @@ export const translations = {
     language: "Language",
   },
   ne: {
+    // App & Nav
     app_name: "सिँचाइ पानी",
     app_tagline: "सिँचाइ व्यवस्थापन प्रणाली",
-
     nav_dashboard: "ड्यासबोर्ड",
     nav_farmers: "किसानहरू",
     nav_requests: "पानी अनुरोध",
@@ -90,22 +114,43 @@ export const translations = {
     nav_settings: "सेटिङहरू",
     dark_mode: "डार्क मोड",
     light_mode: "लाइट मोड",
-    logout: "लगआउट",
+    logout: "साइन आउट",
+    logout_all_devices: "अन्य यन्त्रहरू लगआउट गर्नुहोस्",
     welcome_back: "पुन: स्वागत छ,",
+    back: "फर्किनुहोस्",
+    back_to_signin: "साइन इनमा फर्कनुहोस्",
 
+    // Role Select Page
+    choose_signin_mode: "साइन इन गर्ने तरिका छान्नुहोस्",
+    admin_role_title: "अध्यक्ष (एडमिन)",
+    admin_role_subtitle: "भुक्तानी स्वीकृत, किसान र गुनासो व्यवस्थापन",
+    operator_role_title: "पानी अपरेटर",
+    operator_role_subtitle: "पानी वितरण सुरु र बन्द गर्ने",
+    farmer_role_title: "किसान",
+    farmer_role_subtitle: "पानी अनुरोध, भुक्तानी र गुनासो दर्ता",
+
+    // Login (staff & admin)
     staff_login_title: "कर्मचारी साइन इन",
     staff_login_subtitle: "एडमिन र पानी अपरेटरहरूको लागि",
+    admin_login_title: "अध्यक्ष साइन इन",
+    admin_login_subtitle: "आफ्नो इमेल ठेगाना प्रयोग गरी लगइन गर्नुहोस्",
+    operator_login_title: "अपरेटर साइन इन",
+    operator_login_subtitle: "पानी पम्प र सिँचाइ तालिका व्यवस्थापन",
+    gmail_address: "इमेल ठेगाना",
     email_or_mobile: "इमेल वा मोबाइल नम्बर",
     password: "पासवर्ड",
     remember_me: "मलाई सम्झनुहोस्",
     sign_in: "साइन इन गर्नुहोस्",
     signing_in: "साइन इन हुँदैछ...",
+    continue_with_google: "Google बाट जारी राख्नुहोस्",
     or_sign_in_with_email: "वा इमेलबाट साइन इन गर्नुहोस्",
     invalid_credentials: "गलत प्रमाणहरू। फेरि प्रयास गर्नुहोस्।",
     are_you_farmer: "के तपाईं किसान हुनुहुन्छ?",
     farmer_login_link: "किसान लगइनमा जानुहोस्",
-    demo_admin_hint: "डेमो एडमिन: admin@sichaipani.com / Admin@123",
+    no_admin_account: "खाता छैन?",
+    register_admin: "अध्यक्ष दर्ता गर्नुहोस्",
 
+    // Login & Register (farmer)
     farmer_login_title: "किसान साइन इन",
     farmer_login_subtitle: "पानी अनुरोध गर्नुहोस्, भुक्तानी हेर्नुहोस्, गुनासो दर्ता गर्नुहोस्",
     login_with_password: "पासवर्ड",
@@ -119,13 +164,13 @@ export const translations = {
     register_here: "यहाँ दर्ता गर्नुहोस्",
     staff_member: "कर्मचारी सदस्य?",
     staff_login_link: "कर्मचारी लगइनमा जानुहोस्",
-
     farmer_register_title: "किसान दर्ता",
     full_name: "पूरा नाम",
     create_password: "पासवर्ड बनाउनुहोस्",
     register: "दर्ता गर्नुहोस्",
     already_have_account: "पहिले नै खाता छ?",
 
+    // Dashboard & Widgets
     total_farmers: "कुल किसानहरू",
     active_requests: "सक्रिय अनुरोधहरू",
     todays_schedule: "आजको तालिका",
@@ -139,6 +184,16 @@ export const translations = {
     water_usage_chart: "पानी प्रयोग (गत १४ दिन)",
     revenue_chart: "राजस्व (गत १४ दिन)",
 
+    // Advanced Senior Dev Features
+    emergency_shutdown: "आकस्मिक बन्द (Kill-Switch)",
+    emergency_killswitch: "आकस्मिक पम्प बन्द",
+    weather_forecast: "मौसम र सिँचाइ सल्लाह",
+    smart_irrigation_advice: "स्मार्ट सिँचाइ सिफारिस",
+    print_receipt: "रसिद छाप्नुहोस्",
+    official_receipt: "आधिकारिक सिँचाइ भुक्तानी रसिद",
+    system_announcements: "ताजा सूचना तथा घोषणाहरू",
+
+    // Common
     search: "खोज्नुहोस्",
     add: "थप्नुहोस्",
     save: "सुरक्षित गर्नुहोस्",

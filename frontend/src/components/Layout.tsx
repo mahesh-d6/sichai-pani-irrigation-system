@@ -20,9 +20,11 @@ const NAV_ITEMS: { to: string; labelKey: TranslationKey; icon: typeof LayoutDash
   { to: "/settings", labelKey: "nav_settings", icon: Settings },
 ];
 
+import AnnouncementMarquee from "./AnnouncementMarquee";
+
 export default function Layout() {
   const { user, logout } = useAuth();
-  const { t } = useLanguage();
+  const { t, lang, setLang } = useLanguage();
   const navigate = useNavigate();
   const [dark, setDark] = useState(() => localStorage.getItem("sichai_theme") === "dark");
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -45,8 +47,21 @@ export default function Layout() {
           <Waves className="text-canal-600 dark:text-canal-300" size={24} />
           <span className="font-display font-semibold text-lg">{t("app_name")}</span>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setLang(lang === "en" ? "ne" : "en")}
+            className="px-2 py-1 glass rounded-lg text-xs font-semibold"
+          >
+            {lang === "en" ? "नेपाली" : "English"}
+          </button>
           <NotificationBell />
+          <button
+            onClick={handleLogout}
+            className="p-2 rounded-lg bg-red-100 dark:bg-red-900/40 text-red-600"
+            title={t("logout")}
+          >
+            <LogOut size={18} />
+          </button>
           <button onClick={() => setMobileOpen(true)} className="p-2 rounded-lg glass">
             <Menu size={20} />
           </button>
@@ -83,19 +98,38 @@ export default function Layout() {
         </AnimatePresence>
 
         {/* Main content */}
-        <main className="flex-1 p-4 lg:p-8 min-w-0">
+        <main className="flex-1 p-4 lg:p-8 min-w-0 overflow-x-hidden">
           <div className="hidden lg:flex items-center justify-between mb-6">
             <div>
               <p className="text-sm text-canal-600 dark:text-canal-300">{t("welcome_back")}</p>
               <h1 className="font-display text-2xl font-semibold">{user?.full_name}</h1>
             </div>
             <div className="flex items-center gap-3">
+              <button
+                onClick={() => setLang(lang === "en" ? "ne" : "en")}
+                className="glass hover:bg-white/90 rounded-full px-3 py-1.5 text-xs font-medium flex items-center gap-1.5 transition-colors"
+              >
+                <Languages size={14} />
+                {lang === "en" ? "नेपाली" : "English"}
+              </button>
               <NotificationBell />
               <span className="px-3 py-1 rounded-full text-xs font-medium bg-paddy-100 text-paddy-800 dark:bg-paddy-900 dark:text-paddy-200 capitalize">
                 {user?.role.replace("_", " ")}
               </span>
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 hover:bg-red-200 transition-colors"
+                title={t("logout")}
+              >
+                <LogOut size={14} />
+                <span>{t("logout")}</span>
+              </button>
             </div>
           </div>
+
+          {/* Marquee Ticker */}
+          <AnnouncementMarquee />
+
           <Outlet />
         </main>
       </div>
