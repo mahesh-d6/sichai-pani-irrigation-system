@@ -27,7 +27,47 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from .database import Base, engine, SessionLocal
+from .auth import hash_password
+
 Base.metadata.create_all(bind=engine)
+
+def auto_seed():
+    db = SessionLocal()
+    try:
+        if db.query(models.User).count() == 0:
+            print("[sichai-pani] Auto-seeding initial admin & operator accounts...")
+            admin = models.User(
+                full_name="System Admin",
+                email="admin@sichaipani.com",
+                hashed_password=hash_password("Admin@123"),
+                role=models.UserRole.super_admin,
+                is_email_verified=True,
+            )
+            operator = models.User(
+                full_name="Ramesh Operator",
+                email="operator@sichaipani.com",
+                hashed_password=hash_password("Operator@123"),
+                role=models.UserRole.water_operator,
+                is_email_verified=True,
+            )
+            db.add_all([admin, operator])
+            db.commit()
+
+            canal = models.Canal(name="Main Canal North", location="Sector 4")
+            db.add(canal)
+            db.commit()
+
+            pump = models.Pump(name="Pump Station A", canal_id=canal.id)
+            db.add(pump)
+            db.commit()
+            print("[sichai-pani] Auto-seed complete.")
+    except Exception as e:
+        print(f"[sichai-pani] Auto-seed warning: {e}")
+    finally:
+        db.close()
+
+auto_seed()
 
 # Serve uploaded files (payment proofs, complaint photos, farmer documents)
 os.makedirs(settings.upload_dir, exist_ok=True)
