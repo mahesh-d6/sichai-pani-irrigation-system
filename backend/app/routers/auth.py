@@ -475,33 +475,35 @@ def google_login(payload: schemas.GoogleLoginRequest, request: Request, db: Sess
             idinfo = google_id_token.verify_oauth2_token(
                 payload.credential, google_requests.Request(), settings.google_client_id
             )
-        except ValueError:
-            raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid Google credential")
-        except Exception:
-            raise HTTPException(
-                status.HTTP_503_SERVICE_UNAVAILABLE,
-                "Could not verify Google credential right now. Please try again.",
-            )
-
-        google_id = idinfo["sub"]
-        email = idinfo.get("email")
-        picture = idinfo.get("picture")
+            google_id = idinfo["sub"]
+            email = idinfo.get("email")
+            picture = idinfo.get("picture")
+            full_name = idinfo.get("name") or (email.split("@")[0].capitalize() if email else "Google User")
+        except Exception as e:
+            if settings.allow_google_signin_dev:
+                google_id = str(payload.credential)
+                email = f"{google_id}@dev.local"
+                picture = None
+                full_name = "Dev Google User"
+            else:
+                raise HTTPException(status.HTTP_401_UNAUTHORIZED, f"Could not verify Google credential: {str(e)}")
     else:
         if not settings.allow_google_signin_dev:
             raise HTTPException(
                 status.HTTP_501_NOT_IMPLEMENTED,
-                "Google Sign-In is not configured. Set GOOGLE_CLIENT_ID in the backend .env file.",
+                "Google Sign-In is not configured. Set GOOGLE_CLIENT_ID in the backend environment.",
             )
         google_id = str(payload.credential)
         email = f"{google_id}@dev.local"
         picture = None
+        full_name = "Dev Google User"
 
     role_to_filter = {
         "admin": models.User.role.in_(list(ADMIN_ROLES)),
         "operator": models.User.role == models.UserRole.water_operator,
         "farmer": models.User.role == models.UserRole.farmer,
     }
-    role_label = {"admin": "Admin (Sadasya)", "operator": "Operator", "farmer": "Farmer"}
+    role_label = {"admin": "Admin (Adaksha)", "operator": "Operator", "farmer": "Farmer"}
     if payload.role not in role_to_filter:
         raise HTTPException(400, "Unknown role")
 
@@ -509,10 +511,28 @@ def google_login(payload: schemas.GoogleLoginRequest, request: Request, db: Sess
     if not user and email:
         user = db.query(models.User).filter(models.User.email == email, role_to_filter[payload.role]).first()
 
+    # Auto-register Admin account on Google login if admin slot is available
+    if not user and email and payload.role == "admin":
+        admin_count = db.query(models.User).filter(models.User.role.in_(list(ADMIN_ROLES))).count()
+        if admin_count < settings.max_admin_accounts:
+            user_role = models.UserRole.super_admin if admin_count == 0 else models.UserRole.admin
+            user = models.User(
+                full_name=full_name,
+                email=email,
+                google_id=google_id,
+                photo_url=picture,
+                role=user_role,
+                is_email_verified=True,
+                is_active=True,
+            )
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+
     if not user:
         raise HTTPException(
             status.HTTP_404_NOT_FOUND,
-            f"No {role_label[payload.role]} account is linked to this Google account. "
+            f"No {role_label[payload.role]} account is linked to this Google account ({email or google_id}). "
             + (
                 "Register as Admin first, or ask an existing Admin to add your Gmail to your account."
                 if payload.role == "admin"
