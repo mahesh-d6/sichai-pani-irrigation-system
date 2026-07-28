@@ -21,7 +21,8 @@ app = FastAPI(
 # React's default output-escaping and SQLAlchemy's parameterized queries.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins_list,
+    allow_origins=["*"],
+    allow_origin_regex=r".*",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -44,12 +45,17 @@ def auto_seed():
                 hashed_password=hash_password("Admin@123"),
                 role=models.UserRole.super_admin,
                 is_email_verified=True,
+                is_active=True,
+                failed_login_attempts=0,
+                locked_until=None,
             )
             db.add(admin)
         else:
-            # Ensure password is reset to Admin@123 if previously invalid
+            # Ensure password is reset to Admin@123 and unlock account
             admin.hashed_password = hash_password("Admin@123")
             admin.is_active = True
+            admin.failed_login_attempts = 0
+            admin.locked_until = None
 
         operator = db.query(models.User).filter(models.User.email == "operator@sichaipani.com").first()
         if not operator:
@@ -60,11 +66,16 @@ def auto_seed():
                 hashed_password=hash_password("Operator@123"),
                 role=models.UserRole.water_operator,
                 is_email_verified=True,
+                is_active=True,
+                failed_login_attempts=0,
+                locked_until=None,
             )
             db.add(operator)
         else:
             operator.hashed_password = hash_password("Operator@123")
             operator.is_active = True
+            operator.failed_login_attempts = 0
+            operator.locked_until = None
 
         if db.query(models.Canal).count() == 0:
             canal = models.Canal(name="Main Canal North", location="Sector 4")
@@ -74,7 +85,7 @@ def auto_seed():
             db.add(pump)
 
         db.commit()
-        print("[sichai-pani] Default accounts verified & active.")
+        print("[sichai-pani] Default accounts verified, reset & active.")
     except Exception as e:
         print(f"[sichai-pani] Auto-seed warning: {e}")
     finally:
