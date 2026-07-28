@@ -1,0 +1,23 @@
+# Environment files (contain secrets - never commit these)
+backend/.env
+frontend/.env
+
+# Python
+backend/.venv/
+backend/__pycache__/
+backend/**/__pycache__/
+*.pyc
+
+# Local database
+backend/sichai_pani.db
+
+# Uploaded files (payment proofs, etc.)
+backend/uploads/
+
+# Node
+frontend/node_modules/
+frontend/dist/
+
+# OS/editor junk
+.DS_Store
+Thumbs.db

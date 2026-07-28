@@ -1,0 +1,50 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  @apply bg-canal-50 text-earth-900 dark:bg-canal-950 dark:text-canal-50 transition-colors duration-300;
+}
+
+.font-display {
+  font-family: 'Space Grotesk', sans-serif;
+}
+
+.glass {
+  @apply bg-white/60 dark:bg-canal-900/50 backdrop-blur-xl border border-white/40 dark:border-canal-700/40 shadow-glass;
+}
+
+.glass-strong {
+  @apply bg-white/80 dark:bg-canal-900/70 backdrop-blur-2xl border border-white/50 dark:border-canal-700/50 shadow-glass;
+}
+
+.input {
+  @apply w-full px-3 py-2.5 rounded-xl bg-white/70 dark:bg-canal-900/40 border border-canal-200 dark:border-canal-700 text-sm focus:outline-none focus:ring-2 focus:ring-canal-500;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-canal-300 dark:bg-canal-700 rounded-full;
+}
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+@keyframes ripple-move {
+  0% { transform: translateX(-10%); }
+  50% { transform: translateX(10%); }
+  100% { transform: translateX(-10%); }
+}
+.animate-ripple {
+  animation: ripple-move 8s ease-in-out infinite;
+}
