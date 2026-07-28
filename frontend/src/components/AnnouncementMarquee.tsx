@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Megaphone, Edit3, Plus, Trash2, X } from "lucide-react";
+import { Megaphone, Edit3, Plus, Trash2, X, Sparkles } from "lucide-react";
 import { useLanguage } from "../context/LanguageContext";
 import { useAuth } from "../context/AuthContext";
 import api from "../services/api";
@@ -18,6 +18,7 @@ export default function AnnouncementMarquee() {
   const [newEn, setNewEn] = useState("");
   const [newNe, setNewNe] = useState("");
   const [adding, setAdding] = useState(false);
+  const [translating, setTranslating] = useState(false);
 
   const isStaff = user?.role === "super_admin" || user?.role === "admin" || user?.role === "water_operator";
 
@@ -53,6 +54,26 @@ export default function AnnouncementMarquee() {
     dbAnnouncements.length > 0
       ? dbAnnouncements.map((a) => (lang === "ne" ? a.text_ne : a.text_en))
       : defaultAnnouncements;
+
+  // Auto Translate EN -> NE or NE -> EN
+  const autoTranslate = async (sourceText: string, from: "en" | "ne") => {
+    if (!sourceText.trim()) return;
+    setTranslating(true);
+    try {
+      const pair = from === "en" ? "en|ne" : "ne|en";
+      const res = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(sourceText)}&langpair=${pair}`);
+      const data = await res.json();
+      const translated = data?.responseData?.translatedText;
+      if (translated) {
+        if (from === "en") setNewNe(translated);
+        else setNewEn(translated);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setTranslating(false);
+    }
+  };
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -134,27 +155,61 @@ export default function AnnouncementMarquee() {
             </div>
 
             <form onSubmit={handleAdd} className="space-y-3 mb-6 bg-white/50 dark:bg-canal-900/40 p-4 rounded-2xl border border-canal-200 dark:border-canal-700">
-              <p className="text-xs font-semibold text-canal-600 dark:text-canal-300">Add New Marquee Announcement</p>
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold text-canal-600 dark:text-canal-300">Add New Marquee Announcement</p>
+                {translating && (
+                  <span className="text-[10px] text-canal-500 flex items-center gap-1 font-medium animate-pulse">
+                    <Sparkles size={12} className="text-amber-500" /> Auto Translating...
+                  </span>
+                )}
+              </div>
+
               <div>
-                <label className="text-[11px] text-canal-500 font-medium block mb-1">English Announcement</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-[11px] text-canal-500 font-medium">English Announcement</label>
+                  <button
+                    type="button"
+                    onClick={() => autoTranslate(newEn, "en")}
+                    className="text-[10px] text-canal-600 hover:underline flex items-center gap-1"
+                  >
+                    <Sparkles size={10} /> Auto-Translate to Nepali
+                  </button>
+                </div>
                 <input
                   value={newEn}
                   onChange={(e) => setNewEn(e.target.value)}
+                  onBlur={() => {
+                    if (newEn && !newNe) autoTranslate(newEn, "en");
+                  }}
                   placeholder="e.g. 📢 Canal 2 repair finished. Water delivery resumed."
                   className="input text-xs"
                   required
                 />
               </div>
+
               <div>
-                <label className="text-[11px] text-canal-500 font-medium block mb-1">Nepali Announcement (नेपाली सूचना)</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-[11px] text-canal-500 font-medium">Nepali Announcement (नेपाली सूचना)</label>
+                  <button
+                    type="button"
+                    onClick={() => autoTranslate(newNe, "ne")}
+                    className="text-[10px] text-canal-600 hover:underline flex items-center gap-1"
+                  >
+                    <Sparkles size={10} /> Auto-Translate to English
+                  </button>
+                </div>
                 <input
                   value={newNe}
                   onChange={(e) => setNewNe(e.target.value)}
+                  onBlur={() => {
+                    if (newNe && !newEn) autoTranslate(newNe, "ne");
+                  }}
                   placeholder="उदा. 📢 नहर २ मर्मत सम्पन्न। पानी वितरण पुन: सुरु।"
                   className="input text-xs"
                   required
                 />
               </div>
+
               <button
                 type="submit"
                 disabled={adding}

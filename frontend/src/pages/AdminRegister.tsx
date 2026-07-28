@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate, Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ShieldCheck, ArrowLeft } from "lucide-react";
+import { ShieldCheck, ArrowLeft, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import api from "../services/api";
 
@@ -19,6 +19,8 @@ export default function AdminRegister() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(true);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [registrationOpen, setRegistrationOpen] = useState(true);
   const [slotsLeft, setSlotsLeft] = useState<number | null>(null);
   const { register, handleSubmit, watch, formState: { errors } } = useForm<RegisterForm>();
@@ -116,29 +118,47 @@ export default function AdminRegister() {
               </div>
               <div>
                 <label className="text-sm font-medium mb-1 block">Password</label>
-                <input
-                  type="password"
-                  {...register("password", {
-                    required: "Required",
-                    minLength: { value: 8, message: "At least 8 characters" },
-                    pattern: {
-                      value: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$/,
-                      message: "Must include upper, lower, number, and symbol",
-                    },
-                  })}
-                  className="input"
-                  placeholder="Strong password"
-                />
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    {...register("password", {
+                      required: "Required",
+                      minLength: { value: 8, message: "At least 8 characters" },
+                      pattern: {
+                        value: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$/,
+                        message: "Must include upper, lower, number, and symbol",
+                      },
+                    })}
+                    className="input pr-10"
+                    placeholder="Strong password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-canal-400 hover:text-canal-600 focus:outline-none"
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
                 {errors.password && <p className="text-xs text-red-500 mt-1">{errors.password.message}</p>}
               </div>
               <div>
                 <label className="text-sm font-medium mb-1 block">Confirm Password</label>
-                <input
-                  type="password"
-                  {...register("confirm_password", { required: "Required" })}
-                  className="input"
-                  placeholder="Confirm password"
-                />
+                <div className="relative">
+                  <input
+                    type={showConfirmPassword ? "text" : "password"}
+                    {...register("confirm_password", { required: "Required" })}
+                    className="input pr-10"
+                    placeholder="Confirm password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-canal-400 hover:text-canal-600 focus:outline-none"
+                  >
+                    {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
               </div>
 
               {watch("password") && (

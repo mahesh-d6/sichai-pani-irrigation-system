@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { motion } from "framer-motion";
-import { Search, Plus, X, Phone, MapPin, Trash2 } from "lucide-react";
+import { Search, Plus, X, Phone, MapPin, Trash2, Eye, EyeOff } from "lucide-react";
 import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
 
@@ -29,6 +29,7 @@ export default function Farmers() {
   const [farmers, setFarmers] = useState<Farmer[]>([]);
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [showInactive, setShowInactive] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [formError, setFormError] = useState("");
@@ -151,7 +152,21 @@ export default function Farmers() {
 
             <input {...register("username", { required: true })} placeholder="Username (for farmer login)" className="input" />
             <div>
-              <input {...register("temp_password", { required: true })} placeholder="Temporary Password" className="input w-full" />
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  {...register("temp_password", { required: true })}
+                  placeholder="Temporary Password"
+                  className="input w-full pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-canal-400 hover:text-canal-600 focus:outline-none"
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
               <p className="text-[11px] text-canal-500 mt-1">
                 8+ characters, with an uppercase letter, a lowercase letter, a number, and a symbol.
               </p>

@@ -42,6 +42,8 @@ function fmtTime(iso?: string | null) {
   return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
+import IrrigationCostEstimator from "../components/IrrigationCostEstimator";
+
 export default function WaterRequests() {
   const { user } = useAuth();
   const isFarmer = user?.role === "farmer";
@@ -111,6 +113,8 @@ export default function WaterRequests() {
 
   return (
     <div className="flex flex-col gap-5">
+      <IrrigationCostEstimator />
+
       <div className="flex items-center justify-between">
         <h2 className="font-display text-xl font-semibold">Irrigation Requests</h2>
         <button

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { KeyRound, CheckCircle2, AlertCircle, ShieldOff, History, Mail, User } from "lucide-react";
+import { KeyRound, CheckCircle2, AlertCircle, ShieldOff, History, Mail, User, Eye, EyeOff } from "lucide-react";
 import api from "../services/api";
 import { useLanguage } from "../context/LanguageContext";
 import { useAuth } from "../context/AuthContext";
@@ -143,6 +143,9 @@ function ChangePasswordCard() {
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showOld, setShowOld] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
@@ -189,38 +192,65 @@ function ChangePasswordCard() {
       <form onSubmit={onSubmit} className="flex flex-col gap-3">
         <div>
           <label className="text-sm font-medium mb-1 block">Current Password</label>
-          <input
-            type="password"
-            value={oldPassword}
-            onChange={(e) => setOldPassword(e.target.value)}
-            required
-            autoComplete="current-password"
-            className="input"
-          />
+          <div className="relative">
+            <input
+              type={showOld ? "text" : "password"}
+              value={oldPassword}
+              onChange={(e) => setOldPassword(e.target.value)}
+              required
+              autoComplete="current-password"
+              className="input pr-10"
+            />
+            <button
+              type="button"
+              onClick={() => setShowOld(!showOld)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-canal-400 hover:text-canal-600 focus:outline-none"
+            >
+              {showOld ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          </div>
         </div>
         <div>
           <label className="text-sm font-medium mb-1 block">New Password</label>
-          <input
-            type="password"
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-            required
-            minLength={6}
-            autoComplete="new-password"
-            className="input"
-          />
+          <div className="relative">
+            <input
+              type={showNew ? "text" : "password"}
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              required
+              minLength={6}
+              autoComplete="new-password"
+              className="input pr-10"
+            />
+            <button
+              type="button"
+              onClick={() => setShowNew(!showNew)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-canal-400 hover:text-canal-600 focus:outline-none"
+            >
+              {showNew ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          </div>
         </div>
         <div>
           <label className="text-sm font-medium mb-1 block">Confirm New Password</label>
-          <input
-            type="password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            required
-            minLength={6}
-            autoComplete="new-password"
-            className="input"
-          />
+          <div className="relative">
+            <input
+              type={showConfirm ? "text" : "password"}
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              required
+              minLength={6}
+              autoComplete="new-password"
+              className="input pr-10"
+            />
+            <button
+              type="button"
+              onClick={() => setShowConfirm(!showConfirm)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-canal-400 hover:text-canal-600 focus:outline-none"
+            >
+              {showConfirm ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          </div>
         </div>
 
         {message && (

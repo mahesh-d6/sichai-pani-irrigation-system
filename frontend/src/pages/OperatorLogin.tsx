@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate, Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Wrench, Mail, Lock, LogIn, ArrowLeft } from "lucide-react";
+import { Wrench, Mail, Lock, LogIn, ArrowLeft, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
 import GoogleButton from "../components/GoogleButton";
@@ -18,6 +18,7 @@ export default function OperatorLogin() {
   const navigate = useNavigate();
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const { register, handleSubmit, formState: { errors } } = useForm<LoginForm>();
 
   const onSubmit = async (data: LoginForm) => {
@@ -102,11 +103,18 @@ export default function OperatorLogin() {
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-canal-400" size={18} />
               <input
-                type="password"
+                type={showPassword ? "text" : "password"}
                 {...register("password", { required: "Required" })}
-                className="w-full pl-10 pr-3 py-2.5 rounded-xl bg-white/70 dark:bg-canal-900/40 border border-canal-200 dark:border-canal-700 focus:outline-none focus:ring-2 focus:ring-canal-500"
+                className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-white/70 dark:bg-canal-900/40 border border-canal-200 dark:border-canal-700 focus:outline-none focus:ring-2 focus:ring-canal-500"
                 placeholder="••••••••"
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-canal-400 hover:text-canal-600 focus:outline-none"
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
             </div>
             {errors.password && <p className="text-xs text-red-500 mt-1">{errors.password.message}</p>}
           </div>
