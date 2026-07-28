@@ -7,7 +7,7 @@ const ROLES = [
   {
     to: "/login/admin",
     icon: ShieldCheck,
-    title: "Admin (Sadasya)",
+    title: "Admin (Adaksha)",
     subtitle: "Approve payments, manage farmers, complaints & reports",
     accent: "bg-canal-600",
   },

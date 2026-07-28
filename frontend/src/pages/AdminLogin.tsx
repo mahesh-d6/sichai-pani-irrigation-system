@@ -67,7 +67,7 @@ export default function AdminLogin() {
           <div className="w-14 h-14 rounded-2xl bg-canal-600 flex items-center justify-center mb-3 shadow-lg">
             <ShieldCheck className="text-white" size={28} />
           </div>
-          <h1 className="font-display text-2xl font-semibold text-earth-900 dark:text-canal-50">Admin (Sadasya)</h1>
+          <h1 className="font-display text-2xl font-semibold text-earth-900 dark:text-canal-50">Admin (Adaksha)</h1>
           <p className="text-sm text-canal-600 dark:text-canal-300">Sign in with your Gmail address</p>
         </div>
 

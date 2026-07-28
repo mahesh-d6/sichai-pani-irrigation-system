@@ -46,7 +46,7 @@ class Settings(BaseSettings):
     upload_dir: str = "uploads"
     max_upload_size_mb: int = 5
 
-    # Admin (Sadasya) account cap -- once this many admin/super_admin
+    # Admin (Adaksha) account cap -- once this many admin/super_admin
     # accounts exist, the public admin-registration option disappears.
     max_admin_accounts: int = 3
 
