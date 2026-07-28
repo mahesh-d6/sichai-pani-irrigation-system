@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     # Comma-separated list of allowed frontend origins for CORS. Defaults
     # to local dev ports; set this to your real deployed frontend URL(s)
     # in production, e.g. "https://sichaipani.example.com".
-    cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
+    cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173,http://localhost,http://127.0.0.1"
 
     @property
     def cors_origins_list(self) -> list[str]:

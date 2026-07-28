@@ -1,0 +1,63 @@
+version: '3.8'
+
+services:
+  # MySQL 8.0 Database Service
+  db:
+    image: mysql:8.0
+    container_name: sichai_pani_db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword123}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-sichai_pani}
+      MYSQL_USER: ${MYSQL_USER:-sichai_user}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-sichai_pass123}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./backend/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-rootpassword123}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # FastAPI Backend Service
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: sichai_pani_backend
+    restart: always
+    environment:
+      DATABASE_URL: mysql+pymysql://${MYSQL_USER:-sichai_user}:${MYSQL_PASSWORD:-sichai_pass123}@db:3306/${MYSQL_DATABASE:-sichai_pani}
+      USE_SQLITE_FALLBACK: "false"
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-prod-secret-change-in-env}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-689098637340-sh3f1per7t6lk73ueopffqcl2ba2he47.apps.googleusercontent.com}
+      ALLOW_GOOGLE_SIGNIN_DEV: ${ALLOW_GOOGLE_SIGNIN_DEV:-false}
+      WATER_RATE_PER_HOUR: ${WATER_RATE_PER_HOUR:-200.0}
+    ports:
+      - "8001:8001"
+    volumes:
+      - uploads_data:/app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # Frontend Nginx SPA & Reverse Proxy Service
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: sichai_pani_frontend
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+volumes:
+  mysql_data:
+    driver: local
+  uploads_data:
+    driver: local
