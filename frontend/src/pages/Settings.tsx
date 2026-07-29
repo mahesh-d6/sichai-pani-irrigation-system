@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { KeyRound, CheckCircle2, AlertCircle, ShieldOff, History, Mail, User, Eye, EyeOff } from "lucide-react";
+import { KeyRound, CheckCircle2, AlertCircle, ShieldOff, History, Mail, User, Eye, EyeOff, Fingerprint } from "lucide-react";
 import api from "../services/api";
 import { useLanguage } from "../context/LanguageContext";
 import { useAuth } from "../context/AuthContext";
+import { registerBiometric, isBiometricAvailable } from "../services/biometricAuth";
 
 const ADMIN_ROLES = ["super_admin", "admin"];
 
@@ -63,6 +64,7 @@ export default function SettingsPage() {
       </div>
 
       <EditProfileCard />
+      <BiometricSecurityCard />
       <ChangePasswordCard />
       <ChangeEmailCard />
       {isAdmin && <DeviceSecurityCard />}
@@ -346,6 +348,72 @@ function ChangeEmailCard() {
           {submitting ? "Updating..." : "Update Email"}
         </button>
       </form>
+    </motion.div>
+  );
+}
+
+function BiometricSecurityCard() {
+  const { user } = useAuth();
+  const [enrolled, setEnrolled] = useState(() => {
+    return user ? localStorage.getItem(`sichai_biometric_${user.username}`) === "enabled" : false;
+  });
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+
+  const handleEnroll = async () => {
+    if (!user) return;
+    setBusy(true);
+    setMsg("");
+    const success = await registerBiometric(user.username || "user");
+    if (success) {
+      setEnrolled(true);
+      setMsg("✓ Biometric authentication (Fingerprint / Face ID) registered successfully!");
+    } else {
+      setMsg("Could not register biometric key. Ensure your device has a Touch ID / Fingerprint sensor enabled.");
+    }
+    setBusy(false);
+  };
+
+  const handleDisable = () => {
+    if (!user) return;
+    localStorage.removeItem(`sichai_biometric_${user.username}`);
+    setEnrolled(false);
+    setMsg("Biometric login disabled for this device.");
+  };
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="glass rounded-2xl p-5 flex flex-col gap-3">
+      <h3 className="font-display font-semibold flex items-center gap-2">
+        <Fingerprint size={18} className="text-canal-600" /> Biometric Security (Fingerprint / Face ID)
+      </h3>
+      <p className="text-xs text-canal-500">
+        Register your device's fingerprint or Face ID sensor to sign into your account instantly with 1-touch authentication.
+      </p>
+
+      <div className="flex items-center gap-3 mt-1">
+        {enrolled ? (
+          <button
+            onClick={handleDisable}
+            className="bg-rose-100 dark:bg-rose-900/40 text-rose-600 hover:bg-rose-200 text-xs font-semibold rounded-xl px-4 py-2 transition-colors"
+          >
+            Disable Biometric Key
+          </button>
+        ) : (
+          <button
+            onClick={handleEnroll}
+            disabled={busy || !isBiometricAvailable()}
+            className="bg-paddy-600 hover:bg-paddy-700 disabled:opacity-50 text-white text-xs font-semibold rounded-xl px-4 py-2 flex items-center gap-1.5 transition-colors shadow-sm"
+          >
+            <Fingerprint size={16} />
+            <span>{busy ? "Enrolling..." : "Register Fingerprint / Face ID"}</span>
+          </button>
+        )}
+        <span className="text-xs font-medium text-canal-500">
+          Status: {enrolled ? <strong className="text-paddy-600">Active ✓</strong> : "Not Enrolled"}
+        </span>
+      </div>
+
+      {msg && <p className="text-xs text-canal-600 mt-1">{msg}</p>}
     </motion.div>
   );
 }
