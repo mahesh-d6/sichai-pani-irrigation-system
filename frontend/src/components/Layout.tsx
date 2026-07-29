@@ -21,6 +21,8 @@ const NAV_ITEMS: { to: string; labelKey: TranslationKey; icon: typeof LayoutDash
 ];
 
 import AnnouncementMarquee from "./AnnouncementMarquee";
+import InstallAppBanner from "./InstallAppBanner";
+import MobileBottomNav from "./MobileBottomNav";
 
 export default function Layout() {
   const { user, logout } = useAuth();
@@ -40,7 +42,7 @@ export default function Layout() {
   };
 
   return (
-    <div className="min-h-screen bg-ripple bg-fixed">
+    <div className="min-h-screen bg-ripple bg-fixed pb-16 lg:pb-0">
       {/* Mobile top bar */}
       <div className="lg:hidden flex items-center justify-between p-4 glass sticky top-0 z-30">
         <div className="flex items-center gap-2">
@@ -48,6 +50,7 @@ export default function Layout() {
           <span className="font-display font-semibold text-lg">{t("app_name")}</span>
         </div>
         <div className="flex items-center gap-2">
+          <InstallAppBanner />
           <button
             onClick={() => setLang(lang === "en" ? "ne" : "en")}
             className="px-2 py-1 glass rounded-lg text-xs font-semibold"
@@ -105,6 +108,7 @@ export default function Layout() {
               <h1 className="font-display text-2xl font-semibold">{user?.full_name}</h1>
             </div>
             <div className="flex items-center gap-3">
+              <InstallAppBanner />
               <button
                 onClick={() => setLang(lang === "en" ? "ne" : "en")}
                 className="glass hover:bg-white/90 rounded-full px-3 py-1.5 text-xs font-medium flex items-center gap-1.5 transition-colors"
@@ -133,6 +137,9 @@ export default function Layout() {
           <Outlet />
         </main>
       </div>
+
+      {/* Touch-optimized Mobile Bottom Navigation Bar */}
+      <MobileBottomNav />
     </div>
   );
 }
