@@ -42,6 +42,14 @@ function fmtTime(iso?: string | null) {
   return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
+function getTodayLocalDateString() {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 import IrrigationCostEstimator from "../components/IrrigationCostEstimator";
 
 export default function WaterRequests() {
@@ -54,7 +62,7 @@ export default function WaterRequests() {
   const [showForm, setShowForm] = useState(false);
   const [busyId, setBusyId] = useState<number | null>(null);
   const { register, handleSubmit, reset } = useForm({
-    defaultValues: { farmer_id: "", request_date: "", crop: "", remarks: "" },
+    defaultValues: { farmer_id: "", request_date: getTodayLocalDateString(), crop: "", remarks: "" },
   });
 
   const load = () => {

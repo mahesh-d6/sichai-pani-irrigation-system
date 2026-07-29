@@ -29,10 +29,29 @@ const ROLES: { to: string; icon: typeof ShieldCheck; titleKey: TranslationKey; s
   },
 ];
 
+import { useState } from "react";
+import { Fingerprint } from "lucide-react";
+import { authenticateBiometric } from "../services/biometricAuth";
+
 export default function RoleSelectLogin() {
   const { lang, setLang, t } = useLanguage();
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [bioError, setBioError] = useState("");
+
+  const handleBiometricLogin = async () => {
+    setBioError("");
+    const success = await authenticateBiometric();
+    if (success) {
+      if (user) {
+        navigate("/");
+      } else {
+        setBioError(lang === "ne" ? "कृपया पहिले आफ्नो खाताबाट लगइन गर्नुहोस्।" : "Please sign in to link your biometric key first.");
+      }
+    } else {
+      setBioError(lang === "ne" ? "फिंगरप्रिन्ट/फेस आइडी प्रमाणीकरण रद्द गरियो।" : "Biometric authentication cancelled or unavailable.");
+    }
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-ripple p-4 relative overflow-hidden">
@@ -79,7 +98,7 @@ export default function RoleSelectLogin() {
           </div>
         )}
 
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3 mb-6">
           {ROLES.map((r) => (
             <Link
               key={r.to}
@@ -96,6 +115,17 @@ export default function RoleSelectLogin() {
             </Link>
           ))}
         </div>
+
+        <button
+          type="button"
+          onClick={handleBiometricLogin}
+          className="w-full flex items-center justify-center gap-2 border border-canal-300 dark:border-canal-600 bg-white/80 dark:bg-canal-900/60 rounded-2xl py-3 text-xs font-semibold text-earth-800 dark:text-canal-100 hover:bg-canal-50 dark:hover:bg-canal-800 transition-colors shadow-sm"
+        >
+          <Fingerprint size={18} className="text-canal-600 dark:text-canal-300 animate-pulse" />
+          <span>{lang === "ne" ? "फिंगरप्रिन्ट / फेस आइडी लगइन" : "Biometric Login (Fingerprint / Face ID)"}</span>
+        </button>
+
+        {bioError && <p className="text-xs text-center text-rose-500 mt-2">{bioError}</p>}
       </motion.div>
     </div>
   );
