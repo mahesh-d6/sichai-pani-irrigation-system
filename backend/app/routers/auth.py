@@ -479,24 +479,42 @@ def google_login(payload: schemas.GoogleLoginRequest, request: Request, db: Sess
             email = idinfo.get("email")
             picture = idinfo.get("picture")
             full_name = idinfo.get("name") or (email.split("@")[0].capitalize() if email else "Google User")
-        except Exception as e:
-            if settings.allow_google_signin_dev:
-                google_id = str(payload.credential)
-                email = f"{google_id}@dev.local"
-                picture = None
-                full_name = "Dev Google User"
-            else:
-                raise HTTPException(status.HTTP_401_UNAUTHORIZED, f"Could not verify Google credential: {str(e)}")
+        except Exception:
+            try:
+                idinfo = google_id_token.verify_oauth2_token(
+                    payload.credential, google_requests.Request(), clock_skew_in_seconds=10
+                )
+                google_id = idinfo["sub"]
+                email = idinfo.get("email")
+                picture = idinfo.get("picture")
+                full_name = idinfo.get("name") or (email.split("@")[0].capitalize() if email else "Google User")
+            except Exception as e:
+                if settings.allow_google_signin_dev:
+                    google_id = str(payload.credential)
+                    email = f"{google_id}@dev.local"
+                    picture = None
+                    full_name = "Dev Google User"
+                else:
+                    raise HTTPException(status.HTTP_401_UNAUTHORIZED, f"Could not verify Google credential: {str(e)}")
     else:
-        if not settings.allow_google_signin_dev:
-            raise HTTPException(
-                status.HTTP_501_NOT_IMPLEMENTED,
-                "Google Sign-In is not configured. Set GOOGLE_CLIENT_ID in the backend environment.",
+        try:
+            idinfo = google_id_token.verify_oauth2_token(
+                payload.credential, google_requests.Request(), clock_skew_in_seconds=10
             )
-        google_id = str(payload.credential)
-        email = f"{google_id}@dev.local"
-        picture = None
-        full_name = "Dev Google User"
+            google_id = idinfo["sub"]
+            email = idinfo.get("email")
+            picture = idinfo.get("picture")
+            full_name = idinfo.get("name") or (email.split("@")[0].capitalize() if email else "Google User")
+        except Exception:
+            if not settings.allow_google_signin_dev:
+                raise HTTPException(
+                    status.HTTP_501_NOT_IMPLEMENTED,
+                    "Google Sign-In is not configured. Set GOOGLE_CLIENT_ID in the backend environment.",
+                )
+            google_id = str(payload.credential)
+            email = f"{google_id}@dev.local"
+            picture = None
+            full_name = "Dev Google User"
 
     role_to_filter = {
         "admin": models.User.role.in_(list(ADMIN_ROLES)),
