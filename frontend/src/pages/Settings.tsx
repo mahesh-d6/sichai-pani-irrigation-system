@@ -4,7 +4,7 @@ import { KeyRound, CheckCircle2, AlertCircle, ShieldOff, History, Mail, User, Ey
 import api from "../services/api";
 import { useLanguage } from "../context/LanguageContext";
 import { useAuth } from "../context/AuthContext";
-import { registerFingerprint } from "../services/biometricAuth";
+import { enrollDeviceBiometric, removeDeviceBiometric } from "../services/biometricAuth";
 
 const ADMIN_ROLES = ["super_admin", "admin"];
 
@@ -364,21 +364,23 @@ function BiometricSecurityCard() {
     if (!user) return;
     setBusy(true);
     setMsg("");
-    const success = await registerFingerprint(user.username || "user");
+    const token = localStorage.getItem("sichai_token") || "";
+    const role = user.role;
+    const success = await enrollDeviceBiometric(role, user, token);
     if (success) {
       setEnrolled(true);
-      setMsg("✓ Fingerprint authentication registered successfully!");
+      setMsg("✓ Biometric authentication (Fingerprint / Face Unlock) registered successfully!");
     } else {
-      setMsg("Could not register fingerprint key. Ensure your device has a Fingerprint sensor enabled.");
+      setMsg("Could not register biometric key. Ensure your device biometric sensor is active.");
     }
     setBusy(false);
   };
 
   const handleDisable = () => {
     if (!user) return;
-    localStorage.removeItem(`sichai_biometric_${user.username}`);
+    removeDeviceBiometric(user.role);
     setEnrolled(false);
-    setMsg("Fingerprint login disabled for this device.");
+    setMsg("Biometric login disabled for this device.");
   };
 
   return (

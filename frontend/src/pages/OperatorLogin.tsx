@@ -8,7 +8,7 @@ import { useLanguage } from "../context/LanguageContext";
 import GoogleButton from "../components/GoogleButton";
 
 import { Fingerprint } from "lucide-react";
-import { authenticateFingerprint, saveFingerprintSession, hasFingerprintSession } from "../services/biometricAuth";
+import { authenticateDeviceBiometric, enrollDeviceBiometric, hasEnrolledBiometric } from "../services/biometricAuth";
 
 interface LoginForm {
   email: string;
@@ -24,6 +24,13 @@ export default function OperatorLogin() {
   const [showPassword, setShowPassword] = useState(false);
   const { register, handleSubmit, formState: { errors } } = useForm<LoginForm>();
 
+  const handlePostLogin = async (userObj: any, tokenStr: string) => {
+    if (!hasEnrolledBiometric("water_operator")) {
+      await enrollDeviceBiometric("water_operator", userObj, tokenStr);
+    }
+    navigate("/");
+  };
+
   const onSubmit = async (data: LoginForm) => {
     setError("");
     setLoading(true);
@@ -31,8 +38,7 @@ export default function OperatorLogin() {
       await loginOperator(data.email, data.password);
       const storedUser = JSON.parse(localStorage.getItem("sichai_user") || "{}");
       const storedToken = localStorage.getItem("sichai_token") || "";
-      saveFingerprintSession("water_operator", storedUser, storedToken);
-      navigate("/");
+      await handlePostLogin(storedUser, storedToken);
     } catch (e: any) {
       setError(e?.response?.data?.detail || t("invalid_credentials"));
     } finally {
@@ -42,18 +48,18 @@ export default function OperatorLogin() {
 
   const handleFingerprintLogin = async () => {
     setError("");
-    if (!hasFingerprintSession("water_operator")) {
-      setError(lang === "ne" ? "अपरेटर फिंगरप्रिन्ट पहिले दर्ता गरिएको छैन। कृपया पासवर्डबाट १ पटक लगइन गर्नुहोस्।" : "No Operator fingerprint registered yet. Please log in with password once to link your fingerprint.");
+    if (!hasEnrolledBiometric("water_operator")) {
+      setError(lang === "ne" ? "फिंगरप्रिन्ट लगइन पहिले दर्ता गरिएको छैन। कृपया १ पटक लगइन गर्नुहोस्।" : "No Operator fingerprint registered yet. Please log in with password once.");
       return;
     }
-    const session = await authenticateFingerprint("water_operator");
+    const session = await authenticateDeviceBiometric("water_operator");
     if (session) {
       localStorage.setItem("sichai_token", session.token);
       localStorage.setItem("sichai_user", JSON.stringify(session.user));
       setUser(session.user);
       navigate("/");
     } else {
-      setError(lang === "ne" ? "फिंगरप्रिन्ट प्रमाणीकरण असफल वा रद्द गरियो।" : "Fingerprint verification cancelled or failed.");
+      setError(lang === "ne" ? "फिंगरप्रिन्ट वा फेश अनलक प्रमाणीकरण असफल भयो।" : "Biometric / Device unlock failed or cancelled.");
     }
   };
 
@@ -64,8 +70,7 @@ export default function OperatorLogin() {
       if (outcome.status === "logged_in") {
         const storedUser = JSON.parse(localStorage.getItem("sichai_user") || "{}");
         const storedToken = localStorage.getItem("sichai_token") || "";
-        saveFingerprintSession("water_operator", storedUser, storedToken);
-        navigate("/");
+        await handlePostLogin(storedUser, storedToken);
       }
     } catch (e: any) {
       setError(e?.response?.data?.detail || "Could not sign in with Google.");

@@ -6,6 +6,7 @@ const GOOGLE_CLIENT_ID = (import.meta.env.VITE_GOOGLE_CLIENT_ID as string | unde
 declare global {
   interface Window {
     google?: any;
+    Capacitor?: any;
   }
 }
 
@@ -29,7 +30,6 @@ export default function GoogleButton({ onCredential, onError: _onError }: Google
   const { t } = useLanguage();
 
   useEffect(() => {
-    // Inject Google Identity Services script dynamically if not present
     if (!document.getElementById("google-gsi-script")) {
       const script = document.createElement("script");
       script.id = "google-gsi-script";
@@ -44,6 +44,8 @@ export default function GoogleButton({ onCredential, onError: _onError }: Google
       try {
         window.google.accounts.id.initialize({
           client_id: GOOGLE_CLIENT_ID,
+          ux_mode: "popup",
+          cancel_on_tap_outside: false,
           callback: (response: { credential: string }) => {
             if (response?.credential) {
               onCredential(response.credential);
@@ -79,9 +81,12 @@ export default function GoogleButton({ onCredential, onError: _onError }: Google
   }, []);
 
   const handleManualGoogleClick = () => {
-    // Fallback trigger for Google Sign in
     if (window.google?.accounts?.id) {
-      window.google.accounts.id.prompt();
+      try {
+        window.google.accounts.id.prompt();
+      } catch (e) {
+        console.warn("Google prompt fallback:", e);
+      }
     } else {
       const devCred = `google-auth-${Math.random().toString(36).slice(2, 12)}`;
       onCredential(devCred);
@@ -95,7 +100,7 @@ export default function GoogleButton({ onCredential, onError: _onError }: Google
         <button
           type="button"
           onClick={handleManualGoogleClick}
-          className="w-full max-w-[320px] flex items-center justify-center gap-2.5 border border-canal-300 dark:border-canal-600 bg-white/80 dark:bg-canal-900/60 rounded-full py-2.5 px-4 text-sm font-medium text-earth-800 dark:text-canal-100 hover:bg-canal-50 dark:hover:bg-canal-800 transition-colors shadow-sm"
+          className="w-full max-w-[320px] flex items-center justify-center gap-2.5 border border-canal-300 dark:border-canal-600 bg-white/80 dark:bg-canal-900/60 rounded-full py-2.5 px-4 text-sm font-medium text-earth-800 dark:text-canal-100 hover:bg-canal-50 dark:hover:bg-canal-800 transition-colors shadow-sm cursor-pointer"
         >
           <GoogleGlyph />
           <span>{t("continue_with_google")}</span>
