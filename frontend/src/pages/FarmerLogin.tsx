@@ -7,13 +7,16 @@ import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
 import GoogleButton from "../components/GoogleButton";
 
+import { Fingerprint } from "lucide-react";
+import { authenticateFingerprint, saveFingerprintSession, hasFingerprintSession } from "../services/biometricAuth";
+
 interface PasswordForm {
   username: string;
   password: string;
 }
 
 export default function FarmerLogin() {
-  const { loginFarmer, loginWithGoogle } = useAuth();
+  const { loginFarmer, loginWithGoogle, setUser } = useAuth();
   const { t, lang, setLang } = useLanguage();
   const navigate = useNavigate();
   const [error, setError] = useState("");
@@ -26,6 +29,9 @@ export default function FarmerLogin() {
     setLoading(true);
     try {
       await loginFarmer(data.username, data.password);
+      const storedUser = JSON.parse(localStorage.getItem("sichai_user") || "{}");
+      const storedToken = localStorage.getItem("sichai_token") || "";
+      saveFingerprintSession("farmer", storedUser, storedToken);
       navigate("/");
     } catch (e: any) {
       setError(e?.response?.data?.detail || t("invalid_credentials"));
@@ -34,11 +40,31 @@ export default function FarmerLogin() {
     }
   };
 
+  const handleFingerprintLogin = async () => {
+    setError("");
+    if (!hasFingerprintSession("farmer")) {
+      setError(lang === "ne" ? "किसान फिंगरप्रिन्ट पहिले दर्ता गरिएको छैन। कृपया पासवर्डबाट १ पटक लगइन गर्नुहोस्।" : "No Farmer fingerprint registered yet. Please log in with password once to link your fingerprint.");
+      return;
+    }
+    const session = await authenticateFingerprint("farmer");
+    if (session) {
+      localStorage.setItem("sichai_token", session.token);
+      localStorage.setItem("sichai_user", JSON.stringify(session.user));
+      setUser(session.user);
+      navigate("/");
+    } else {
+      setError(lang === "ne" ? "फिंगरप्रिन्ट प्रमाणीकरण असफल वा रद्द गरियो।" : "Fingerprint verification cancelled or failed.");
+    }
+  };
+
   const handleGoogleCredential = async (credential: string) => {
     setError("");
     try {
       const outcome = await loginWithGoogle(credential, "farmer");
       if (outcome.status === "logged_in") {
+        const storedUser = JSON.parse(localStorage.getItem("sichai_user") || "{}");
+        const storedToken = localStorage.getItem("sichai_token") || "";
+        saveFingerprintSession("farmer", storedUser, storedToken);
         navigate("/");
       }
     } catch (e: any) {
@@ -74,6 +100,15 @@ export default function FarmerLogin() {
             Your Admin created this account for you. Use the username and password they gave you.
           </p>
         </div>
+
+        <button
+          type="button"
+          onClick={handleFingerprintLogin}
+          className="w-full mb-5 flex items-center justify-center gap-2 border border-paddy-300 dark:border-paddy-700 bg-white/80 dark:bg-canal-900/60 hover:bg-paddy-50 dark:hover:bg-canal-800 text-earth-900 dark:text-canal-100 rounded-xl py-2.5 text-xs font-semibold shadow-sm transition-colors"
+        >
+          <Fingerprint size={18} className="text-paddy-600 dark:text-paddy-300" />
+          <span>{lang === "ne" ? "👆 किसान फिंगरप्रिन्ट लगइन" : "👆 Sign in with Farmer Fingerprint"}</span>
+        </button>
 
         <div className="flex flex-col items-center gap-4 mb-6">
           <GoogleButton onCredential={handleGoogleCredential} onError={setError} />

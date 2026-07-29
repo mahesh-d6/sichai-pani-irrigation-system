@@ -4,7 +4,7 @@ import { KeyRound, CheckCircle2, AlertCircle, ShieldOff, History, Mail, User, Ey
 import api from "../services/api";
 import { useLanguage } from "../context/LanguageContext";
 import { useAuth } from "../context/AuthContext";
-import { registerBiometric } from "../services/biometricAuth";
+import { registerFingerprint } from "../services/biometricAuth";
 
 const ADMIN_ROLES = ["super_admin", "admin"];
 
@@ -364,12 +364,12 @@ function BiometricSecurityCard() {
     if (!user) return;
     setBusy(true);
     setMsg("");
-    const success = await registerBiometric(user.username || "user");
+    const success = await registerFingerprint(user.username || "user");
     if (success) {
       setEnrolled(true);
-      setMsg("✓ Biometric authentication (Fingerprint / Face ID) registered successfully!");
+      setMsg("✓ Fingerprint authentication registered successfully!");
     } else {
-      setMsg("Could not register biometric key. Ensure your device has a Touch ID / Fingerprint sensor enabled.");
+      setMsg("Could not register fingerprint key. Ensure your device has a Fingerprint sensor enabled.");
     }
     setBusy(false);
   };
@@ -378,16 +378,16 @@ function BiometricSecurityCard() {
     if (!user) return;
     localStorage.removeItem(`sichai_biometric_${user.username}`);
     setEnrolled(false);
-    setMsg("Biometric login disabled for this device.");
+    setMsg("Fingerprint login disabled for this device.");
   };
 
   return (
     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="glass rounded-2xl p-5 flex flex-col gap-3">
       <h3 className="font-display font-semibold flex items-center gap-2">
-        <Fingerprint size={18} className="text-canal-600" /> Biometric Security (Fingerprint / Face ID)
+        <Fingerprint size={18} className="text-canal-600" /> Fingerprint Security
       </h3>
       <p className="text-xs text-canal-500">
-        Register your device's fingerprint or Face ID sensor to sign into your account instantly with 1-touch authentication.
+        Register your device's fingerprint sensor to sign into your account instantly with 1-touch authentication.
       </p>
 
       <div className="flex items-center gap-3 mt-1">
@@ -396,7 +396,7 @@ function BiometricSecurityCard() {
             onClick={handleDisable}
             className="bg-rose-100 dark:bg-rose-900/40 text-rose-600 hover:bg-rose-200 text-xs font-semibold rounded-xl px-4 py-2 transition-colors"
           >
-            Disable Biometric Key
+            Disable Fingerprint Key
           </button>
         ) : (
           <button
@@ -405,7 +405,7 @@ function BiometricSecurityCard() {
             className="bg-paddy-600 hover:bg-paddy-700 disabled:opacity-50 text-white text-xs font-semibold rounded-xl px-4 py-2 flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
           >
             <Fingerprint size={16} />
-            <span>{busy ? "Enrolling..." : "Register Fingerprint / Face ID"}</span>
+            <span>{busy ? "Enrolling..." : "Register Fingerprint Sensor"}</span>
           </button>
         )}
         <span className="text-xs font-medium text-canal-500">

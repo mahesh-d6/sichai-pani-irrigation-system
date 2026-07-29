@@ -13,8 +13,11 @@ interface LoginForm {
   password: string;
 }
 
+import { Fingerprint } from "lucide-react";
+import { authenticateFingerprint, saveFingerprintSession, hasFingerprintSession } from "../services/biometricAuth";
+
 export default function AdminLogin() {
-  const { loginAdmin, loginWithGoogle } = useAuth();
+  const { loginAdmin, loginWithGoogle, setUser } = useAuth();
   const { t, lang, setLang } = useLanguage();
   const navigate = useNavigate();
   const [error, setError] = useState("");
@@ -33,7 +36,12 @@ export default function AdminLogin() {
     try {
       const deviceLabel = `${navigator.platform || "device"} - ${navigator.userAgent.slice(0, 40)}`;
       const outcome = await loginAdmin(data.email, data.password, deviceLabel);
-      if (outcome.status === "logged_in") navigate("/");
+      if (outcome.status === "logged_in") {
+        const storedUser = JSON.parse(localStorage.getItem("sichai_user") || "{}");
+        const storedToken = localStorage.getItem("sichai_token") || "";
+        saveFingerprintSession("admin", storedUser, storedToken);
+        navigate("/");
+      }
     } catch (e: any) {
       setError(e?.response?.data?.detail || t("invalid_credentials"));
     } finally {
@@ -41,11 +49,33 @@ export default function AdminLogin() {
     }
   };
 
+  const handleFingerprintLogin = async () => {
+    setError("");
+    if (!hasFingerprintSession("admin")) {
+      setError(lang === "ne" ? "एडमिन फिंगरप्रिन्ट पहिले दर्ता गरिएको छैन। कृपया पासवर्डबाट १ पटक लगइन गर्नुहोस्।" : "No Admin fingerprint registered yet. Please log in with password once to link your fingerprint.");
+      return;
+    }
+    const session = await authenticateFingerprint("admin");
+    if (session) {
+      localStorage.setItem("sichai_token", session.token);
+      localStorage.setItem("sichai_user", JSON.stringify(session.user));
+      setUser(session.user);
+      navigate("/");
+    } else {
+      setError(lang === "ne" ? "फिंगरप्रिन्ट प्रमाणीकरण असफल वा रद्द गरियो।" : "Fingerprint verification cancelled or failed.");
+    }
+  };
+
   const handleGoogleCredential = async (credential: string) => {
     setError("");
     try {
       const outcome = await loginWithGoogle(credential, "admin");
-      if (outcome.status === "logged_in") navigate("/");
+      if (outcome.status === "logged_in") {
+        const storedUser = JSON.parse(localStorage.getItem("sichai_user") || "{}");
+        const storedToken = localStorage.getItem("sichai_token") || "";
+        saveFingerprintSession("admin", storedUser, storedToken);
+        navigate("/");
+      }
     } catch (e: any) {
       setError(e?.response?.data?.detail || "Could not sign in with Google.");
     }
@@ -73,13 +103,22 @@ export default function AdminLogin() {
           <ArrowLeft size={13} /> {t("back")}
         </Link>
 
-        <div className="flex flex-col items-center mb-8">
+        <div className="flex flex-col items-center mb-6">
           <div className="w-14 h-14 rounded-2xl bg-canal-600 flex items-center justify-center mb-3 shadow-lg">
             <ShieldCheck className="text-white" size={28} />
           </div>
           <h1 className="font-display text-2xl font-semibold text-earth-900 dark:text-canal-50">{t("admin_login_title")}</h1>
           <p className="text-sm text-canal-600 dark:text-canal-300">{t("admin_login_subtitle")}</p>
         </div>
+
+        <button
+          type="button"
+          onClick={handleFingerprintLogin}
+          className="w-full mb-5 flex items-center justify-center gap-2 border border-canal-300 dark:border-canal-600 bg-white/80 dark:bg-canal-900/60 hover:bg-canal-50 dark:hover:bg-canal-800 text-canal-800 dark:text-canal-100 rounded-xl py-2.5 text-xs font-semibold shadow-sm transition-colors"
+        >
+          <Fingerprint size={18} className="text-canal-600 dark:text-canal-300" />
+          <span>{lang === "ne" ? "👆 एडमिन फिंगरप्रिन्ट लगइन" : "👆 Sign in with Admin Fingerprint"}</span>
+        </button>
 
         <div className="flex flex-col items-center gap-4 mb-6">
           <GoogleButton onCredential={handleGoogleCredential} onError={setError} />
