@@ -4,7 +4,7 @@ import { KeyRound, CheckCircle2, AlertCircle, ShieldOff, History, Mail, User, Ey
 import api from "../services/api";
 import { useLanguage } from "../context/LanguageContext";
 import { useAuth } from "../context/AuthContext";
-import { registerBiometric, isBiometricAvailable } from "../services/biometricAuth";
+import { registerBiometric } from "../services/biometricAuth";
 
 const ADMIN_ROLES = ["super_admin", "admin"];
 
@@ -401,8 +401,8 @@ function BiometricSecurityCard() {
         ) : (
           <button
             onClick={handleEnroll}
-            disabled={busy || !isBiometricAvailable()}
-            className="bg-paddy-600 hover:bg-paddy-700 disabled:opacity-50 text-white text-xs font-semibold rounded-xl px-4 py-2 flex items-center gap-1.5 transition-colors shadow-sm"
+            disabled={busy}
+            className="bg-paddy-600 hover:bg-paddy-700 disabled:opacity-50 text-white text-xs font-semibold rounded-xl px-4 py-2 flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
           >
             <Fingerprint size={16} />
             <span>{busy ? "Enrolling..." : "Register Fingerprint / Face ID"}</span>
