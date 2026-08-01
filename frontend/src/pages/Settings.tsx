@@ -65,6 +65,7 @@ export default function SettingsPage() {
 
       <EditProfileCard />
       <BiometricSecurityCard />
+      <GoogleAccountCard />
       <ChangePasswordCard />
       <ChangeEmailCard />
       {isAdmin && <DeviceSecurityCard />}
@@ -415,6 +416,61 @@ function BiometricSecurityCard() {
         </span>
       </div>
 
+      {msg && <p className="text-xs text-canal-600 mt-1">{msg}</p>}
+    </motion.div>
+  );
+}
+
+function GoogleAccountCard() {
+  const { user, setUser } = useAuth();
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+
+  const handleUnlink = async () => {
+    setBusy(true);
+    setMsg("");
+    try {
+      await api.post("/api/auth/unlink-google");
+      if (user) {
+        setUser({ ...user, google_id: null });
+      }
+      setMsg("✓ Google/Gmail account unlinked successfully.");
+    } catch {
+      setMsg("Could not unlink Google account.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="glass rounded-2xl p-5 flex flex-col gap-3">
+      <h3 className="font-display font-semibold flex items-center gap-2">
+        <Mail size={18} className="text-canal-600" /> Linked Gmail / Google Account
+      </h3>
+      <p className="text-xs text-canal-500">
+        Manage your linked Google account used for 1-click Google Sign-in.
+      </p>
+      <div className="flex items-center justify-between gap-3 mt-1">
+        <div>
+          <p className="text-xs font-medium text-earth-800 dark:text-canal-100">
+            {user?.email || "No email"}
+          </p>
+          <span className="text-[11px] text-canal-500">
+            Google Status: {user?.google_id ? <strong className="text-paddy-600">Linked ✓</strong> : "Not Linked"}
+          </span>
+        </div>
+        {user?.google_id ? (
+          <button
+            onClick={handleUnlink}
+            disabled={busy}
+            className="bg-rose-100 dark:bg-rose-900/40 text-rose-600 hover:bg-rose-200 text-xs font-semibold rounded-xl px-4 py-2 transition-colors disabled:opacity-50"
+          >
+            {busy ? "Unlinking..." : "Unlink Gmail"}
+          </button>
+        ) : (
+          <span className="text-xs text-canal-400 font-medium">Standard Account</span>
+        )}
+      </div>
       {msg && <p className="text-xs text-canal-600 mt-1">{msg}</p>}
     </motion.div>
   );

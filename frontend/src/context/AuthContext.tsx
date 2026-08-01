@@ -14,6 +14,7 @@ export interface CurrentUser {
   is_email_verified: boolean;
   photo_url?: string;
   must_change_password?: boolean;
+  google_id?: string | null;
 }
 
 export interface AdminLoginOutcome {

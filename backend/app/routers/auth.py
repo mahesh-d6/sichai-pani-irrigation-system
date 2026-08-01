@@ -556,6 +556,20 @@ def google_login(payload: schemas.GoogleLoginRequest, request: Request, db: Sess
     return schemas.AdminLoginResult(status="logged_in", token=schemas.Token(access_token=token, user=schemas.UserOut.model_validate(user)))
 
 
+@router.post("/unlink-google")
+def unlink_google_account(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """Unlinks/deletes the Google account ID associated with the logged in user."""
+    current_user.google_id = None
+    db.commit()
+    db.refresh(current_user)
+    _log(db, current_user.id, current_user.role.value, "google_unlinked", request)
+    return {"message": "Google account unlinked successfully."}
+
+
 @router.get("/me", response_model=schemas.UserOut)
 def get_me(current_user: models.User = Depends(get_current_user)):
     return current_user
