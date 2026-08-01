@@ -28,6 +28,9 @@ export default function AdminLogin() {
 
   useEffect(() => {
     api.get("/api/auth/admin/registration-status").then((r) => setRegistrationOpen(r.data.open)).catch(() => {});
+    if (hasEnrolledBiometric("admin")) {
+      handleFingerprintLogin();
+    }
   }, []);
 
   const handlePostLogin = async (userObj: any, tokenStr: string) => {

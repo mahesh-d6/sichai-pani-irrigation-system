@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate, Link } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -23,6 +23,12 @@ export default function OperatorLogin() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const { register, handleSubmit, formState: { errors } } = useForm<LoginForm>();
+
+  useEffect(() => {
+    if (hasEnrolledBiometric("water_operator")) {
+      handleFingerprintLogin();
+    }
+  }, []);
 
   const handlePostLogin = async (userObj: any, tokenStr: string) => {
     if (hasEnrolledBiometric("water_operator")) {
