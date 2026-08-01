@@ -8,7 +8,7 @@ import { useLanguage } from "../context/LanguageContext";
 import GoogleButton from "../components/GoogleButton";
 
 import { Fingerprint } from "lucide-react";
-import { authenticateDeviceBiometric, enrollDeviceBiometric, hasEnrolledBiometric } from "../services/biometricAuth";
+import { authenticateDeviceBiometric, hasEnrolledBiometric } from "../services/biometricAuth";
 
 interface PasswordForm {
   username: string;
@@ -25,8 +25,9 @@ export default function FarmerLogin() {
   const { register, handleSubmit, formState: { errors } } = useForm<PasswordForm>();
 
   const handlePostLogin = async (userObj: any, tokenStr: string) => {
-    if (!hasEnrolledBiometric("farmer")) {
-      await enrollDeviceBiometric("farmer", userObj, tokenStr);
+    if (hasEnrolledBiometric("farmer")) {
+      localStorage.setItem("sichai_sec_token_farmer", tokenStr);
+      localStorage.setItem("sichai_sec_user_farmer", JSON.stringify(userObj));
     }
     navigate("/");
   };

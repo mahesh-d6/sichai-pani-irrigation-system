@@ -4,7 +4,7 @@ import { KeyRound, CheckCircle2, AlertCircle, ShieldOff, History, Mail, User, Ey
 import api from "../services/api";
 import { useLanguage } from "../context/LanguageContext";
 import { useAuth } from "../context/AuthContext";
-import { enrollDeviceBiometric, removeDeviceBiometric } from "../services/biometricAuth";
+import { enrollDeviceBiometric, removeDeviceBiometric, hasEnrolledBiometric } from "../services/biometricAuth";
 
 const ADMIN_ROLES = ["super_admin", "admin"];
 
@@ -355,7 +355,7 @@ function ChangeEmailCard() {
 function BiometricSecurityCard() {
   const { user } = useAuth();
   const [enrolled, setEnrolled] = useState(() => {
-    return user ? localStorage.getItem(`sichai_biometric_${user.username}`) === "enabled" : false;
+    return user ? hasEnrolledBiometric(user.role) : false;
   });
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");

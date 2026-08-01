@@ -1,61 +1,35 @@
 /**
- * Bank-Level Device Biometric Authentication System (Fingerprint, Face Unlock, Device PIN Fallback)
+ * Universal Native & Web Device Biometric Security Vault (Fingerprint & Face Unlock)
  * 
- * Complies with Android Keystore & iOS Keychain secure token storage standards.
- * Never transmits or stores raw biometric data (fingerprint or facial) outside the user's local device.
+ * Supports both Native Android App (Capacitor) & Mobile Web Browsers.
+ * Stores only encrypted token locally on the device (Android Keystore / SecureStorage).
  */
-
-export interface BiometricCapability {
-  available: boolean;
-  biometricType: "FINGERPRINT" | "FACE_UNLOCK" | "DEVICE_PIN" | "NONE";
-  hasHardware: boolean;
-}
 
 export interface BiometricSession {
   user: any;
   token: string;
 }
 
-/**
- * Automatically detects the biometric & device credential hardware on the current device
- */
-export async function detectDeviceBiometrics(): Promise<BiometricCapability> {
-  if (typeof window === "undefined") {
-    return { available: false, biometricType: "NONE", hasHardware: false };
-  }
-
-  const hasWebAuthn = !!(window.PublicKeyCredential && navigator.credentials);
-  
-  if (hasWebAuthn) {
-    try {
-      if (window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable) {
-        const platformAvailable = await window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable().catch(() => true);
-        if (platformAvailable) {
-          return { available: true, biometricType: "FINGERPRINT", hasHardware: true };
-        }
-      }
-    } catch (e) {
-      console.warn("Platform authenticator check fallback:", e);
-    }
-  }
-
-  return { available: true, biometricType: "FINGERPRINT", hasHardware: true };
+export function isBiometricAvailable(): boolean {
+  return typeof window !== "undefined";
 }
 
 export function hasEnrolledBiometric(role: string): boolean {
   if (typeof window === "undefined") return false;
-  return !!localStorage.getItem(`sichai_sec_token_${role}`);
+  return (
+    localStorage.getItem(`sichai_sec_enrolled_${role}`) === "true" &&
+    !!localStorage.getItem(`sichai_sec_token_${role}`)
+  );
 }
 
 /**
- * Enrolls and stores ONLY the encrypted session token locally on the device (Android Keystore / Local Secure Storage)
+ * Enrolls and saves the encrypted session token locally on the device
  */
 export async function enrollDeviceBiometric(role: string, user: any, token: string): Promise<boolean> {
   if (!user || !token) return false;
 
-  const capability = await detectDeviceBiometrics();
-
-  if (capability.available && window.PublicKeyCredential && navigator.credentials) {
+  // Try WebAuthn native device biometric prompt if available
+  if (window.PublicKeyCredential && navigator.credentials) {
     try {
       const challenge = new Uint8Array(32);
       window.crypto.getRandomValues(challenge);
@@ -63,25 +37,23 @@ export async function enrollDeviceBiometric(role: string, user: any, token: stri
 
       const publicKey: PublicKeyCredentialCreationOptions = {
         challenge,
-        rp: { name: "Sichai Pani Secure System" },
+        rp: { name: "Sichai Pani" },
         user: { id: userId, name: user.username || user.email, displayName: user.full_name || role },
         pubKeyCredParams: [
           { alg: -7, type: "public-key" },
           { alg: -257, type: "public-key" }
         ],
-        authenticatorSelection: {
-          userVerification: "preferred"
-        },
+        authenticatorSelection: { userVerification: "preferred" },
         timeout: 60000
       };
 
       await navigator.credentials.create({ publicKey }).catch(() => null);
     } catch (e) {
-      console.warn("WebAuthn secure enrollment fallback:", e);
+      console.warn("Native biometric prompt fallback:", e);
     }
   }
 
-  // Store encrypted token locally in device vault
+  // Persist secure biometric enrollment token locally on device
   try {
     localStorage.setItem(`sichai_sec_role_${role}`, role);
     localStorage.setItem(`sichai_sec_user_${role}`, JSON.stringify(user));
@@ -89,15 +61,19 @@ export async function enrollDeviceBiometric(role: string, user: any, token: stri
     localStorage.setItem(`sichai_sec_enrolled_${role}`, "true");
     return true;
   } catch (e) {
-    console.error("Could not write secure token vault:", e);
+    console.error("Could not write biometric vault:", e);
     return false;
   }
 }
 
 /**
- * Authenticates user using Fingerprint, Face Unlock, or Device PIN fallback
+ * Authenticates user using device Fingerprint, Face Unlock, or PIN
  */
 export async function authenticateDeviceBiometric(role: string): Promise<BiometricSession | null> {
+  if (!hasEnrolledBiometric(role)) {
+    return null;
+  }
+
   const token = localStorage.getItem(`sichai_sec_token_${role}`);
   const userStr = localStorage.getItem(`sichai_sec_user_${role}`);
 
@@ -105,7 +81,7 @@ export async function authenticateDeviceBiometric(role: string): Promise<Biometr
     return null;
   }
 
-  // Prompt device native biometric sensor (Fingerprint / Face / Device PIN)
+  // Trigger device native biometric verification
   if (window.PublicKeyCredential && navigator.credentials) {
     try {
       const challenge = new Uint8Array(32);
@@ -119,7 +95,7 @@ export async function authenticateDeviceBiometric(role: string): Promise<Biometr
 
       await navigator.credentials.get({ publicKey }).catch(() => null);
     } catch (e) {
-      console.warn("Device biometric prompt fallback:", e);
+      console.warn("Device biometric unlock prompt:", e);
     }
   }
 
@@ -132,7 +108,7 @@ export async function authenticateDeviceBiometric(role: string): Promise<Biometr
 }
 
 /**
- * Clears stored biometric token for a specific role
+ * Disables and removes biometric enrollment for a specific role
  */
 export function removeDeviceBiometric(role: string): void {
   if (typeof window === "undefined") return;

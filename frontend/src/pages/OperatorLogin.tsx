@@ -8,7 +8,7 @@ import { useLanguage } from "../context/LanguageContext";
 import GoogleButton from "../components/GoogleButton";
 
 import { Fingerprint } from "lucide-react";
-import { authenticateDeviceBiometric, enrollDeviceBiometric, hasEnrolledBiometric } from "../services/biometricAuth";
+import { authenticateDeviceBiometric, hasEnrolledBiometric } from "../services/biometricAuth";
 
 interface LoginForm {
   email: string;
@@ -25,8 +25,9 @@ export default function OperatorLogin() {
   const { register, handleSubmit, formState: { errors } } = useForm<LoginForm>();
 
   const handlePostLogin = async (userObj: any, tokenStr: string) => {
-    if (!hasEnrolledBiometric("water_operator")) {
-      await enrollDeviceBiometric("water_operator", userObj, tokenStr);
+    if (hasEnrolledBiometric("water_operator")) {
+      localStorage.setItem("sichai_sec_token_water_operator", tokenStr);
+      localStorage.setItem("sichai_sec_user_water_operator", JSON.stringify(userObj));
     }
     navigate("/");
   };

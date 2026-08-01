@@ -14,7 +14,7 @@ interface LoginForm {
 }
 
 import { Fingerprint } from "lucide-react";
-import { authenticateDeviceBiometric, enrollDeviceBiometric, hasEnrolledBiometric } from "../services/biometricAuth";
+import { authenticateDeviceBiometric, hasEnrolledBiometric } from "../services/biometricAuth";
 
 export default function AdminLogin() {
   const { loginAdmin, loginWithGoogle, setUser } = useAuth();
@@ -31,8 +31,9 @@ export default function AdminLogin() {
   }, []);
 
   const handlePostLogin = async (userObj: any, tokenStr: string) => {
-    if (!hasEnrolledBiometric("admin")) {
-      await enrollDeviceBiometric("admin", userObj, tokenStr);
+    if (hasEnrolledBiometric("admin")) {
+      localStorage.setItem("sichai_sec_token_admin", tokenStr);
+      localStorage.setItem("sichai_sec_user_admin", JSON.stringify(userObj));
     }
     navigate("/");
   };
