@@ -38,8 +38,14 @@ const STATUS_STYLES: Record<string, string> = {
 };
 
 function fmtTime(iso?: string | null) {
-  if (!iso) return "-";
-  return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  if (!iso) return "";
+  let cleanIso = iso.trim();
+  if (cleanIso.includes("T") && !cleanIso.endsWith("Z") && !cleanIso.slice(11).includes("+") && !cleanIso.slice(11).includes("-")) {
+    cleanIso += "Z";
+  }
+  const d = new Date(cleanIso);
+  if (isNaN(d.getTime())) return iso;
+  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true });
 }
 
 function getTodayLocalDateString() {
@@ -211,11 +217,13 @@ export default function WaterRequests() {
                 {!isFarmer && <td className="py-3 px-4 font-medium">{farmerName(r.farmer_id)}</td>}
                 <td className="py-3 px-4">{r.request_date}</td>
                 <td className="py-3 px-4">{r.crop || "-"}</td>
-                <td className="py-3 px-4">
+                <td className="py-3 px-4 font-medium text-xs">
                   {r.actual_start_time ? (
-                    <span>{fmtTime(r.actual_start_time)} – {fmtTime(r.actual_end_time)}</span>
+                    <span>
+                      {fmtTime(r.actual_start_time)} – {r.actual_end_time ? fmtTime(r.actual_end_time) : <span className="text-sky-600 dark:text-sky-400 font-semibold animate-pulse">Running...</span>}
+                    </span>
                   ) : (
-                    <span className="text-canal-400">Not started</span>
+                    <span className="text-canal-400 font-normal">Not started</span>
                   )}
                 </td>
                 <td className="py-3 px-4 font-medium">
