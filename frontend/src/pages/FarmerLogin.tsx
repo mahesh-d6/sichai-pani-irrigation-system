@@ -9,6 +9,7 @@ import GoogleButton from "../components/GoogleButton";
 
 import { Fingerprint } from "lucide-react";
 import { authenticateDeviceBiometric, hasEnrolledBiometric } from "../services/biometricAuth";
+import PendingGoogleApprovalModal from "../components/PendingGoogleApprovalModal";
 
 interface PasswordForm {
   username: string;
@@ -22,6 +23,7 @@ export default function FarmerLogin() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [pendingChallenge, setPendingChallenge] = useState<string | null>(null);
   const { register, handleSubmit, formState: { errors } } = useForm<PasswordForm>();
 
   const handlePostLogin = async (userObj: any, tokenStr: string) => {
@@ -72,6 +74,8 @@ export default function FarmerLogin() {
         const storedUser = JSON.parse(localStorage.getItem("sichai_user") || "{}");
         const storedToken = localStorage.getItem("sichai_token") || "";
         await handlePostLogin(storedUser, storedToken);
+      } else if (outcome.status === "pending_approval" && outcome.pending_challenge_id) {
+        setPendingChallenge(outcome.pending_challenge_id);
       }
     } catch (e: any) {
       setError(e?.response?.data?.detail || t("invalid_credentials"));
@@ -181,6 +185,12 @@ export default function FarmerLogin() {
           {t("staff_member")}
           <Link to="/login" className="font-medium text-canal-600 hover:underline">{t("staff_login_link")}</Link>
         </div>
+        {pendingChallenge && (
+          <PendingGoogleApprovalModal
+            challengeId={pendingChallenge}
+            onClose={() => setPendingChallenge(null)}
+          />
+        )}
       </motion.div>
     </div>
   );

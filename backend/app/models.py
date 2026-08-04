@@ -27,6 +27,7 @@ class RequestStatus(str, enum.Enum):
     rejected = "rejected"
     rescheduled = "rescheduled"
     in_progress = "in_progress"  # operator has pressed Start, water is flowing
+    paused = "paused"            # operator paused due to electricity cut / loadshedding
     completed = "completed"      # operator has pressed Stop
 
 
@@ -217,6 +218,7 @@ class WaterRequest(Base):
     actual_start_time = Column(DateTime, nullable=True)
     actual_end_time = Column(DateTime, nullable=True)
     actual_total_hours = Column(Float, nullable=True)
+    accumulated_seconds = Column(Float, default=0.0)
 
     farmer = relationship("Farmer", back_populates="requests")
     canal = relationship("Canal")

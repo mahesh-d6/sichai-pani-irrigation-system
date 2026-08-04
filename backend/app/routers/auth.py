@@ -173,13 +173,10 @@ def list_my_login_challenges(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(require_roles(*ADMIN_ROLES)),
 ):
-    """The currently-logged-in Admin polls this to see pending login requests from other devices."""
+    """The currently-logged-in Admin polls this to see pending login and Google sign-in requests."""
     return (
         db.query(models.LoginChallenge)
-        .filter(
-            models.LoginChallenge.user_id == current_user.id,
-            models.LoginChallenge.status == models.LoginChallengeStatus.pending,
-        )
+        .filter(models.LoginChallenge.status == models.LoginChallengeStatus.pending)
         .order_by(models.LoginChallenge.id.desc())
         .all()
     )
@@ -195,21 +192,24 @@ def respond_to_login_challenge(
 ):
     challenge = db.query(models.LoginChallenge).filter(
         models.LoginChallenge.public_id == public_id,
-        models.LoginChallenge.user_id == current_user.id,
     ).first()
     if not challenge:
         raise HTTPException(404, "Login request not found")
     if challenge.status != models.LoginChallengeStatus.pending:
         raise HTTPException(409, "This login request has already been resolved")
 
+    target_user = challenge.user
+
     if payload.action == "allow":
-        # New device takes over the single session slot.
-        current_user.active_session_id = new_session_id()
+        if target_user:
+            target_user.active_session_id = new_session_id()
+            if not target_user.google_id:
+                target_user.google_id = f"google-auth-approved-{target_user.id}"
         challenge.status = models.LoginChallengeStatus.allowed
-        _log(db, current_user.id, current_user.role.value, "login_challenge_allowed", request, details=public_id)
+        _log(db, current_user.id, current_user.role.value, "login_challenge_allowed", request, details=f"{public_id} for user {target_user.id if target_user else 'unknown'}")
     elif payload.action == "reject":
         challenge.status = models.LoginChallengeStatus.rejected
-        _log(db, current_user.id, current_user.role.value, "login_challenge_rejected", request, details=public_id)
+        _log(db, current_user.id, current_user.role.value, "login_challenge_rejected", request, details=f"{public_id} for user {target_user.id if target_user else 'unknown'}")
     else:
         raise HTTPException(400, "action must be 'allow' or 'reject'")
 
@@ -539,10 +539,36 @@ def google_login(payload: schemas.GoogleLoginRequest, request: Request, db: Sess
     if not user.is_active:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Account is disabled")
 
-    # First successful Google login for an account that was created with a
-    # password -- link it going forward so future Google logins are instant.
+    # If the user's Google account is NOT linked (unlinked or purged), require Admin Approval!
     if not user.google_id:
-        user.google_id = google_id
+        pub_id = secrets.token_urlsafe(16)
+        challenge = models.LoginChallenge(
+            public_id=pub_id,
+            user_id=user.id,
+            status=models.LoginChallengeStatus.pending,
+            requester_ip=get_client_ip(request),
+            requester_user_agent=request.headers.get("user-agent", "")[:250],
+        )
+        db.add(challenge)
+        db.commit()
+
+        # Notify Super Admins
+        admins = db.query(models.User).filter(models.User.role.in_(list(ADMIN_ROLES))).all()
+        for a in admins:
+            notify_user(
+                db, a.id,
+                "🔐 Pending Google Login Approval Request",
+                f"User '{user.full_name}' ({email or user.email}) requested Google Sign-in approval from IP {get_client_ip(request)}.",
+            )
+
+        _log(db, user.id, user.role.value, "google_approval_requested", request, details=pub_id)
+
+        return schemas.AdminLoginResult(
+            status="pending_approval",
+            pending_challenge_id=pub_id,
+            message="Google Sign-in requires Admin approval. Request sent to Admin.",
+        )
+
     if picture and not user.photo_url:
         user.photo_url = picture
     db.commit()
@@ -568,6 +594,45 @@ def unlink_google_account(
     db.refresh(current_user)
     _log(db, current_user.id, current_user.role.value, "google_unlinked", request)
     return {"message": "Google account unlinked successfully."}
+
+
+@router.post("/admin/purge-all-google-links")
+def purge_all_non_default_google_links(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(require_roles(*ADMIN_ROLES)),
+):
+    """
+    Purges/unlinks Google accounts for all users except the primary default Super Admin.
+    Any unlinked account attempting Google login will require Admin approval.
+    """
+    first_admin = db.query(models.User).filter(models.User.role == models.UserRole.super_admin).order_by(models.User.id.asc()).first()
+    first_admin_id = first_admin.id if first_admin else current_user.id
+
+    users_to_purge = db.query(models.User).filter(models.User.id != first_admin_id, models.User.google_id.isnot(None)).all()
+    count = len(users_to_purge)
+    for u in users_to_purge:
+        u.google_id = None
+
+    db.commit()
+    _log(db, current_user.id, current_user.role.value, "purge_all_google_links", request, details=f"Purged {count} accounts")
+    return {"message": f"Successfully unlinked {count} Google accounts. Future Google logins will require Admin approval."}
+
+
+@router.post("/admin/unlink-user-google/{user_id}")
+def unlink_user_google_by_admin(
+    user_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(require_roles(*ADMIN_ROLES)),
+):
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(404, "User not found")
+    user.google_id = None
+    db.commit()
+    _log(db, current_user.id, current_user.role.value, "admin_unlinked_user_google", request, details=f"User ID {user_id}")
+    return {"message": f"Google account unlinked for user {user.full_name}. Future Google logins will require Admin approval."}
 
 
 @router.get("/me", response_model=schemas.UserOut)

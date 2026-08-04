@@ -423,8 +423,24 @@ function BiometricSecurityCard() {
 
 function GoogleAccountCard() {
   const { user, setUser } = useAuth();
+  const isAdmin = user && ADMIN_ROLES.includes(user.role);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
+  const [challenges, setChallenges] = useState<any[]>([]);
+
+  const loadChallenges = () => {
+    if (isAdmin) {
+      api.get("/api/auth/admin/login-challenges").then((r) => {
+        if (Array.isArray(r.data)) setChallenges(r.data);
+      }).catch(() => {});
+    }
+  };
+
+  useEffect(() => {
+    loadChallenges();
+    const interval = setInterval(loadChallenges, 4000);
+    return () => clearInterval(interval);
+  }, [isAdmin]);
 
   const handleUnlink = async () => {
     setBusy(true);
@@ -442,15 +458,40 @@ function GoogleAccountCard() {
     }
   };
 
+  const handlePurgeAll = async () => {
+    if (!window.confirm("Are you sure you want to remove all linked Gmail accounts except the primary Admin? All unlinked users will require Admin approval to sign in via Google.")) return;
+    setBusy(true);
+    setMsg("");
+    try {
+      const res = await api.post("/api/auth/admin/purge-all-google-links");
+      setMsg(`✓ ${res.data.message}`);
+    } catch {
+      setMsg("Could not purge Google accounts.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleRespondChallenge = async (publicId: string, action: "allow" | "reject") => {
+    try {
+      await api.post(`/api/auth/admin/login-challenges/${publicId}/respond`, { action });
+      loadChallenges();
+      setMsg(`✓ Google sign-in request ${action === "allow" ? "approved" : "rejected"}.`);
+    } catch {
+      setMsg("Could not respond to request.");
+    }
+  };
+
   return (
-    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="glass rounded-2xl p-5 flex flex-col gap-3">
+    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="glass rounded-2xl p-5 flex flex-col gap-4">
       <h3 className="font-display font-semibold flex items-center gap-2">
-        <Mail size={18} className="text-canal-600" /> Linked Gmail / Google Account
+        <Mail size={18} className="text-canal-600" /> Linked Gmail & Admin Approvals
       </h3>
       <p className="text-xs text-canal-500">
-        Manage your linked Google account used for 1-click Google Sign-in.
+        Manage your linked Google account and approve secondary Google sign-in requests.
       </p>
-      <div className="flex items-center justify-between gap-3 mt-1">
+
+      <div className="flex items-center justify-between gap-3 p-3 rounded-xl bg-white/50 dark:bg-canal-900/40 border border-canal-200/50 dark:border-canal-700/50">
         <div>
           <p className="text-xs font-medium text-earth-800 dark:text-canal-100">
             {user?.email || "No email"}
@@ -465,12 +506,63 @@ function GoogleAccountCard() {
             disabled={busy}
             className="bg-rose-100 dark:bg-rose-900/40 text-rose-600 hover:bg-rose-200 text-xs font-semibold rounded-xl px-4 py-2 transition-colors disabled:opacity-50"
           >
-            {busy ? "Unlinking..." : "Unlink Gmail"}
+            {busy ? "Unlinking..." : "Unlink My Gmail"}
           </button>
         ) : (
           <span className="text-xs text-canal-400 font-medium">Standard Account</span>
         )}
       </div>
+
+      {isAdmin && (
+        <div className="flex flex-col gap-3 pt-2 border-t border-canal-200/50 dark:border-canal-700/50">
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <p className="text-xs font-semibold text-earth-900 dark:text-canal-100">Admin Security Control</p>
+              <p className="text-[11px] text-canal-500">Remove all secondary logged-in Gmails except the default Admin.</p>
+            </div>
+            <button
+              onClick={handlePurgeAll}
+              disabled={busy}
+              className="bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold rounded-xl px-4 py-2 shadow-sm transition-colors disabled:opacity-50 flex-shrink-0"
+            >
+              Purge Non-Admin Gmails
+            </button>
+          </div>
+
+          {challenges.length > 0 && (
+            <div className="mt-2 flex flex-col gap-2">
+              <p className="text-xs font-semibold text-amber-700 dark:text-amber-300 flex items-center gap-1.5">
+                🔒 Pending Google Login Requests ({challenges.length})
+              </p>
+              {challenges.map((c) => (
+                <div key={c.id} className="flex items-center justify-between p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-xs">
+                  <div>
+                    <p className="font-semibold text-earth-900 dark:text-canal-100">
+                      User #{c.user_id} - IP: {c.requester_ip || "Unknown"}
+                    </p>
+                    <p className="text-[11px] text-canal-500">Requested approval for Google login</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleRespondChallenge(c.public_id, "allow")}
+                      className="bg-paddy-600 hover:bg-paddy-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg shadow-sm transition-colors"
+                    >
+                      Approve
+                    </button>
+                    <button
+                      onClick={() => handleRespondChallenge(c.public_id, "reject")}
+                      className="bg-rose-100 text-rose-600 hover:bg-rose-200 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+                    >
+                      Reject
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {msg && <p className="text-xs text-canal-600 mt-1">{msg}</p>}
     </motion.div>
   );

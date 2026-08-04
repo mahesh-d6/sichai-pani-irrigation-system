@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { motion } from "framer-motion";
-import { Plus, X, Droplets, CheckCircle2, XCircle, Calendar, Play, Square, Timer, ListChecks, Waves } from "lucide-react";
+import { Plus, X, Droplets, CheckCircle2, XCircle, Calendar, Play, Pause, Square, Timer, ListChecks, Waves } from "lucide-react";
 import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
 
@@ -24,6 +24,7 @@ interface WaterRequest {
   actual_start_time?: string | null;
   actual_end_time?: string | null;
   actual_total_hours?: number | null;
+  accumulated_seconds?: number | null;
 }
 
 const OPERATOR_ROLES = ["water_operator"];
@@ -34,6 +35,7 @@ const STATUS_STYLES: Record<string, string> = {
   rejected: "bg-rose-100 text-rose-700 dark:bg-rose-900/50 dark:text-rose-200",
   rescheduled: "bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-200",
   in_progress: "bg-sky-100 text-sky-700 dark:bg-sky-900/50 dark:text-sky-200",
+  paused: "bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200",
   completed: "bg-paddy-100 text-paddy-700 dark:bg-paddy-900/60 dark:text-paddy-200",
 };
 
@@ -100,6 +102,26 @@ export default function WaterRequests() {
     setBusyId(id);
     try {
       await api.post(`/api/requests/${id}/start`);
+      load();
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const pauseWater = async (id: number) => {
+    setBusyId(id);
+    try {
+      await api.post(`/api/requests/${id}/pause`);
+      load();
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const resumeWater = async (id: number) => {
+    setBusyId(id);
+    try {
+      await api.post(`/api/requests/${id}/resume`);
       load();
     } finally {
       setBusyId(null);
@@ -218,11 +240,20 @@ export default function WaterRequests() {
                 <td className="py-3 px-4">{r.request_date}</td>
                 <td className="py-3 px-4">{r.crop || "-"}</td>
                 <td className="py-3 px-4 font-medium text-xs">
-                  {r.actual_start_time ? (
+                  {r.status === "in_progress" && (
                     <span>
-                      {fmtTime(r.actual_start_time)} – {r.actual_end_time ? fmtTime(r.actual_end_time) : <span className="text-sky-600 dark:text-sky-400 font-semibold animate-pulse">Running...</span>}
+                      {fmtTime(r.actual_start_time)} – <span className="text-sky-600 dark:text-sky-400 font-semibold animate-pulse">Running...</span>
                     </span>
-                  ) : (
+                  )}
+                  {r.status === "paused" && (
+                    <span className="text-amber-700 dark:text-amber-300 font-semibold flex items-center gap-1">
+                      <Pause size={13} className="animate-pulse" /> Paused (Power Cut)
+                    </span>
+                  )}
+                  {r.status === "completed" && (
+                    <span>{fmtTime(r.actual_start_time)} – {fmtTime(r.actual_end_time)}</span>
+                  )}
+                  {r.status !== "in_progress" && r.status !== "paused" && r.status !== "completed" && (
                     <span className="text-canal-400 font-normal">Not started</span>
                   )}
                 </td>
@@ -231,7 +262,9 @@ export default function WaterRequests() {
                 </td>
                 <td className="py-3 px-4 font-medium">Rs.{r.total_amount}</td>
                 <td className="py-3 px-4">
-                  <span className={`text-xs px-2 py-1 rounded-full capitalize ${STATUS_STYLES[r.status]}`}>{r.status.replace("_", " ")}</span>
+                  <span className={`text-xs px-2.5 py-1 rounded-full font-medium capitalize ${STATUS_STYLES[r.status]}`}>
+                    {r.status === "paused" ? "⏸️ Paused (Power Cut)" : r.status.replace("_", " ")}
+                  </span>
                 </td>
                 <td className="py-3 px-4">
                   <span className={`text-xs px-2 py-1 rounded-full capitalize ${r.payment_status === "paid" ? "bg-paddy-100 text-paddy-700 dark:bg-paddy-900 dark:text-paddy-200" : "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-200"}`}>
@@ -250,19 +283,50 @@ export default function WaterRequests() {
                       <button
                         onClick={() => startWater(r.id)}
                         disabled={busyId === r.id}
-                        className="flex items-center gap-1.5 text-xs font-medium bg-sky-600 hover:bg-sky-700 text-white rounded-lg px-3 py-1.5 disabled:opacity-50"
+                        className="flex items-center gap-1.5 text-xs font-medium bg-sky-600 hover:bg-sky-700 text-white rounded-lg px-3 py-1.5 disabled:opacity-50 shadow-sm"
                       >
                         <Play size={13} /> Start
                       </button>
                     )}
                     {canOperate && r.status === "in_progress" && (
-                      <button
-                        onClick={() => stopWater(r.id)}
-                        disabled={busyId === r.id}
-                        className="flex items-center gap-1.5 text-xs font-medium bg-rose-600 hover:bg-rose-700 text-white rounded-lg px-3 py-1.5 disabled:opacity-50"
-                      >
-                        <Square size={13} /> Stop
-                      </button>
+                      <div className="flex gap-1.5">
+                        <button
+                          onClick={() => pauseWater(r.id)}
+                          disabled={busyId === r.id}
+                          className="flex items-center gap-1 text-xs font-medium bg-amber-500 hover:bg-amber-600 text-white rounded-lg px-2.5 py-1.5 disabled:opacity-50 shadow-sm"
+                          title="Pause for Electricity Cut / Loadshedding"
+                        >
+                          <Pause size={13} /> Pause
+                        </button>
+                        <button
+                          onClick={() => stopWater(r.id)}
+                          disabled={busyId === r.id}
+                          className="flex items-center gap-1 text-xs font-medium bg-rose-600 hover:bg-rose-700 text-white rounded-lg px-2.5 py-1.5 disabled:opacity-50 shadow-sm"
+                          title="Stop and bill actual time"
+                        >
+                          <Square size={13} /> Stop
+                        </button>
+                      </div>
+                    )}
+                    {canOperate && r.status === "paused" && (
+                      <div className="flex gap-1.5">
+                        <button
+                          onClick={() => resumeWater(r.id)}
+                          disabled={busyId === r.id}
+                          className="flex items-center gap-1 text-xs font-medium bg-sky-600 hover:bg-sky-700 text-white rounded-lg px-2.5 py-1.5 disabled:opacity-50 shadow-sm"
+                          title="Resume when power returns"
+                        >
+                          <Play size={13} /> Resume
+                        </button>
+                        <button
+                          onClick={() => stopWater(r.id)}
+                          disabled={busyId === r.id}
+                          className="flex items-center gap-1 text-xs font-medium bg-rose-600 hover:bg-rose-700 text-white rounded-lg px-2.5 py-1.5 disabled:opacity-50 shadow-sm"
+                          title="Stop and bill actual time"
+                        >
+                          <Square size={13} /> Stop
+                        </button>
+                      </div>
                     )}
                   </div>
                 </td>

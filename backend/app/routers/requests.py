@@ -186,8 +186,61 @@ def start_water(
         raise HTTPException(409, "Water has already been started for this request")
 
     wr.actual_start_time = dt.datetime.utcnow()
+    wr.accumulated_seconds = 0.0
     wr.status = models.RequestStatus.in_progress
     wr.operator_id = current_user.id
+    db.commit()
+    db.refresh(wr)
+    return wr
+
+
+@router.post("/{request_id}/pause", response_model=schemas.WaterRequestOut)
+def pause_water(
+    request_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(require_roles("water_operator")),
+):
+    """
+    Operator presses Pause when electricity/power supply cuts off or pump stops unexpectedly.
+    Pauses the timer and accumulates active delivery time so far.
+    """
+    wr = db.query(models.WaterRequest).filter(models.WaterRequest.id == request_id).first()
+    if not wr:
+        raise HTTPException(404, "Water request not found")
+    if wr.status != models.RequestStatus.in_progress:
+        raise HTTPException(409, "Can only pause a water request that is currently in progress")
+
+    now = dt.datetime.utcnow()
+    if wr.actual_start_time:
+        delta = (now - wr.actual_start_time).total_seconds()
+        wr.accumulated_seconds = (wr.accumulated_seconds or 0.0) + delta
+        wr.actual_start_time = None
+
+    wr.status = models.RequestStatus.paused
+    wr.actual_total_hours = round((wr.accumulated_seconds or 0.0) / 3600.0, 2)
+    db.commit()
+    db.refresh(wr)
+    return wr
+
+
+@router.post("/{request_id}/resume", response_model=schemas.WaterRequestOut)
+def resume_water(
+    request_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(require_roles("water_operator")),
+):
+    """
+    Operator presses Resume when electricity/power returns.
+    Restarts the active delivery timer.
+    """
+    wr = db.query(models.WaterRequest).filter(models.WaterRequest.id == request_id).first()
+    if not wr:
+        raise HTTPException(404, "Water request not found")
+    if wr.status != models.RequestStatus.paused:
+        raise HTTPException(409, "Can only resume a paused water request")
+
+    wr.actual_start_time = dt.datetime.utcnow()
+    wr.status = models.RequestStatus.in_progress
     db.commit()
     db.refresh(wr)
     return wr
@@ -200,24 +253,28 @@ def stop_water(
     current_user: models.User = Depends(require_roles("water_operator")),
 ):
     """
-    Operator presses Stop when they close the valve/pump. Computes the
-    real elapsed time and rebills the request on that actual duration
-    (not the originally requested estimate) -- this is what every
-    dashboard (Admin, Operator, Farmer) then displays as the final total.
+    Operator presses Stop when water delivery finishes.
+    Computes total active delivery duration (excluding electricity cuts) and rebills the request.
     """
     wr = db.query(models.WaterRequest).filter(models.WaterRequest.id == request_id).first()
     if not wr:
         raise HTTPException(404, "Water request not found")
-    if not wr.actual_start_time:
-        raise HTTPException(409, "Water hasn't been started for this request yet")
+    if wr.status not in (models.RequestStatus.in_progress, models.RequestStatus.paused):
+        raise HTTPException(409, "Water hasn't been started or is already completed")
     if wr.actual_end_time:
         raise HTTPException(409, "Water has already been stopped for this request")
 
-    wr.actual_end_time = dt.datetime.utcnow()
-    elapsed_hours = (wr.actual_end_time - wr.actual_start_time).total_seconds() / 3600
+    now = dt.datetime.utcnow()
+    total_sec = wr.accumulated_seconds or 0.0
+    if wr.status == models.RequestStatus.in_progress and wr.actual_start_time:
+        total_sec += (now - wr.actual_start_time).total_seconds()
+
+    wr.actual_end_time = now
+    wr.accumulated_seconds = total_sec
+    elapsed_hours = total_sec / 3600.0
     wr.actual_total_hours = round(elapsed_hours, 2)
 
-    # Re-bill on the real, actual duration.
+    # Re-bill on the real, actual active duration.
     wr.total_hours = wr.actual_total_hours
     wr.total_amount = round(wr.actual_total_hours * wr.rate_per_hour, 2)
     wr.status = models.RequestStatus.completed

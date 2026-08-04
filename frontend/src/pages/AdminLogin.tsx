@@ -15,6 +15,7 @@ interface LoginForm {
 
 import { Fingerprint } from "lucide-react";
 import { authenticateDeviceBiometric, hasEnrolledBiometric } from "../services/biometricAuth";
+import PendingGoogleApprovalModal from "../components/PendingGoogleApprovalModal";
 
 export default function AdminLogin() {
   const { loginAdmin, loginWithGoogle, setUser } = useAuth();
@@ -73,6 +74,8 @@ export default function AdminLogin() {
     }
   };
 
+  const [pendingChallenge, setPendingChallenge] = useState<string | null>(null);
+
   const handleGoogleCredential = async (credential: string) => {
     setError("");
     try {
@@ -81,6 +84,8 @@ export default function AdminLogin() {
         const storedUser = JSON.parse(localStorage.getItem("sichai_user") || "{}");
         const storedToken = localStorage.getItem("sichai_token") || "";
         await handlePostLogin(storedUser, storedToken);
+      } else if (outcome.status === "pending_approval" && outcome.pending_challenge_id) {
+        setPendingChallenge(outcome.pending_challenge_id);
       }
     } catch (e: any) {
       setError(e?.response?.data?.detail || "Could not sign in with Google.");
@@ -190,6 +195,12 @@ export default function AdminLogin() {
               {t("register")}
             </Link>
           </p>
+        )}
+        {pendingChallenge && (
+          <PendingGoogleApprovalModal
+            challengeId={pendingChallenge}
+            onClose={() => setPendingChallenge(null)}
+          />
         )}
       </motion.div>
     </div>

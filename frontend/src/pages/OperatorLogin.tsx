@@ -9,6 +9,7 @@ import GoogleButton from "../components/GoogleButton";
 
 import { Fingerprint } from "lucide-react";
 import { authenticateDeviceBiometric, hasEnrolledBiometric } from "../services/biometricAuth";
+import PendingGoogleApprovalModal from "../components/PendingGoogleApprovalModal";
 
 interface LoginForm {
   email: string;
@@ -22,6 +23,7 @@ export default function OperatorLogin() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [pendingChallenge, setPendingChallenge] = useState<string | null>(null);
   const { register, handleSubmit, formState: { errors } } = useForm<LoginForm>();
 
   const handlePostLogin = async (userObj: any, tokenStr: string) => {
@@ -72,6 +74,8 @@ export default function OperatorLogin() {
         const storedUser = JSON.parse(localStorage.getItem("sichai_user") || "{}");
         const storedToken = localStorage.getItem("sichai_token") || "";
         await handlePostLogin(storedUser, storedToken);
+      } else if (outcome.status === "pending_approval" && outcome.pending_challenge_id) {
+        setPendingChallenge(outcome.pending_challenge_id);
       }
     } catch (e: any) {
       setError(e?.response?.data?.detail || "Could not sign in with Google.");
@@ -173,6 +177,12 @@ export default function OperatorLogin() {
             {loading ? t("signing_in") : t("sign_in")}
           </button>
         </form>
+        {pendingChallenge && (
+          <PendingGoogleApprovalModal
+            challengeId={pendingChallenge}
+            onClose={() => setPendingChallenge(null)}
+          />
+        )}
       </motion.div>
     </div>
   );
