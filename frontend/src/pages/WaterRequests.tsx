@@ -84,13 +84,28 @@ export default function WaterRequests() {
 
   useEffect(load, [isFarmer]);
 
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState("");
+
   const onSubmit = async (data: any) => {
-    // No time window is collected here anymore -- the Operator's actual
-    // Start/Stop button is the only source of timing and billing.
-    await api.post("/api/requests", { ...data, farmer_id: isFarmer ? 0 : Number(data.farmer_id) });
-    reset();
-    setShowForm(false);
-    load();
+    setFormError("");
+    setSubmitting(true);
+    try {
+      const payload: any = {
+        request_date: data.request_date,
+        crop: data.crop || null,
+        remarks: data.remarks || null,
+        farmer_id: isFarmer ? 1 : Number(data.farmer_id || 1),
+      };
+      await api.post("/api/requests", payload);
+      reset();
+      setShowForm(false);
+      load();
+    } catch (err: any) {
+      setFormError(err?.response?.data?.detail || "Could not submit water request. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const updateStatus = async (id: number, status: string) => {
@@ -208,11 +223,21 @@ export default function WaterRequests() {
               </select>
             )}
             <input {...register("request_date", { required: true })} type="date" className="input" />
-            <input {...register("crop")} placeholder="Crop" className="input" />
+            <input {...register("crop")} placeholder="Crop (e.g. Paddy / Wheat)" className="input" />
             <input {...register("remarks")} placeholder="Remarks (optional)" className="input sm:col-span-2" />
 
-            <button type="submit" className="sm:col-span-2 bg-paddy-600 hover:bg-paddy-700 text-white font-medium rounded-xl py-2.5">
-              Submit Request
+            {formError && (
+              <p className="sm:col-span-2 text-xs text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 p-2.5 rounded-xl border border-rose-200 dark:border-rose-800">
+                {formError}
+              </p>
+            )}
+
+            <button
+              type="submit"
+              disabled={submitting}
+              className="sm:col-span-2 bg-paddy-600 hover:bg-paddy-700 text-white font-medium rounded-xl py-2.5 disabled:opacity-60 transition-colors shadow-sm"
+            >
+              {submitting ? "Submitting Request..." : "Submit Request"}
             </button>
           </form>
         </motion.div>

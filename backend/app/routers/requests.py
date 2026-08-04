@@ -78,9 +78,28 @@ def create_request(
     # callers rather than trusted, otherwise any farmer could submit (and
     # bill) a request under a different farmer's name.
     if current_user.role == models.UserRole.farmer:
-        if not current_user.farmer_profile:
-            raise HTTPException(403, "No farmer profile linked to this account")
-        farmer_id = current_user.farmer_profile.id
+        farmer_profile = current_user.farmer_profile
+        if not farmer_profile:
+            farmer_profile = db.query(models.Farmer).filter(
+                (models.Farmer.user_id == current_user.id) |
+                (models.Farmer.email == current_user.email)
+            ).first()
+            if not farmer_profile:
+                code = f"FARM-{current_user.id:04d}"
+                farmer_profile = models.Farmer(
+                    user_id=current_user.id,
+                    farmer_code=code,
+                    full_name=current_user.full_name or "Farmer User",
+                    mobile_number=current_user.mobile_number or "9800000000",
+                    email=current_user.email,
+                )
+                db.add(farmer_profile)
+                db.commit()
+                db.refresh(farmer_profile)
+            else:
+                farmer_profile.user_id = current_user.id
+                db.commit()
+        farmer_id = farmer_profile.id
     else:
         farmer_id = payload.farmer_id
 
