@@ -40,7 +40,24 @@ export default function Dashboard() {
   const [emergencyModalOpen, setEmergencyModalOpen] = useState(false);
 
   useEffect(() => {
-    api.get("/api/dashboard/stats").then((r) => setStats(r.data)).catch(() => {});
+    api.get("/api/dashboard/stats")
+      .then((r) => setStats(r.data))
+      .catch((err) => {
+        console.warn("Could not fetch stats, setting default fallback", err);
+        setStats({
+          total_farmers: 0,
+          active_water_requests: 0,
+          todays_schedule: 0,
+          total_revenue: 0,
+          water_used_today_hours: 0,
+          monthly_income: 0,
+          pending_payments: 0,
+          active_pumps: 0,
+          open_complaints: 0,
+          unread_notifications: 0,
+        });
+      });
+
     api.get("/api/dashboard/charts/water-usage").then((r) => setWaterUsage(r.data)).catch(() => {});
     api.get("/api/dashboard/charts/revenue").then((r) => setRevenue(r.data)).catch(() => {});
   }, []);
