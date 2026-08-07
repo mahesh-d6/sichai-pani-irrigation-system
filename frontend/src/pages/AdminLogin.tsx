@@ -1,11 +1,11 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate, Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ShieldCheck, Mail, Lock, LogIn, ArrowLeft, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
-import api from "../services/api";
+
 import GoogleButton from "../components/GoogleButton";
 
 interface LoginForm {
@@ -24,12 +24,7 @@ export default function AdminLogin() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [registrationOpen, setRegistrationOpen] = useState(true);
   const { register, handleSubmit, formState: { errors } } = useForm<LoginForm>();
-
-  useEffect(() => {
-    api.get("/api/auth/admin/registration-status").then((r) => setRegistrationOpen(r.data.open)).catch(() => {});
-  }, []);
 
   const handlePostLogin = async (userObj: any, tokenStr: string) => {
     if (hasEnrolledBiometric("admin")) {
@@ -188,14 +183,7 @@ export default function AdminLogin() {
           </button>
         </form>
 
-        {registrationOpen && (
-          <p className="text-sm text-center mt-6 text-canal-600 dark:text-canal-300">
-            {t("no_admin_account")}{" "}
-            <Link to="/login/admin/register" className="font-medium text-canal-700 hover:underline">
-              {t("register")}
-            </Link>
-          </p>
-        )}
+
         {pendingChallenge && (
           <PendingGoogleApprovalModal
             challengeId={pendingChallenge}
