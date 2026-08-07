@@ -7,6 +7,8 @@ import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
 import { Fingerprint } from "lucide-react";
 import { authenticateDeviceBiometric, hasEnrolledBiometric } from "../services/biometricAuth";
+import GoogleButton from "../components/GoogleButton";
+import PendingGoogleApprovalModal from "../components/PendingGoogleApprovalModal";
 
 interface LoginForm {
   email: string;
@@ -14,12 +16,13 @@ interface LoginForm {
 }
 
 export default function AdminLogin() {
-  const { loginAdmin, setUser } = useAuth();
+  const { loginAdmin, loginWithGoogle, setUser } = useAuth();
   const { t, lang, setLang } = useLanguage();
   const navigate = useNavigate();
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [pendingChallenge, setPendingChallenge] = useState<string | null>(null);
   const { register, handleSubmit, formState: { errors } } = useForm<LoginForm>();
 
   const handlePostLogin = async (userObj: any, tokenStr: string) => {
@@ -65,6 +68,28 @@ export default function AdminLogin() {
     }
   };
 
+  const handleGoogleCredential = async (credential: string) => {
+    setError("");
+    try {
+      const outcome = await loginWithGoogle(credential, "admin");
+      if (outcome.status === "logged_in") {
+        const storedUser = JSON.parse(localStorage.getItem("sichai_user") || "{}");
+        const storedToken = localStorage.getItem("sichai_token") || "";
+        await handlePostLogin(storedUser, storedToken);
+      } else if (outcome.status === "pending_approval" && outcome.pending_challenge_id) {
+        setPendingChallenge(outcome.pending_challenge_id);
+      }
+    } catch (e: any) {
+      // Show clear message when Gmail is not registered
+      const detail = e?.response?.data?.detail || "";
+      if (e?.response?.status === 403) {
+        setError("This Gmail account is not registered in the system. Only authorized admin emails can sign in with Google.");
+      } else {
+        setError(detail || "Could not sign in with Google.");
+      }
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-ripple p-4 relative overflow-hidden">
       <div className="absolute -top-40 -left-40 w-96 h-96 rounded-full bg-canal-300/30 blur-3xl animate-ripple" />
@@ -103,6 +128,15 @@ export default function AdminLogin() {
           <Fingerprint size={18} className="text-canal-600 dark:text-canal-300" />
           <span>{lang === "ne" ? "👆 एडमिन फिंगरप्रिन्ट लगइन" : "👆 Sign in with Admin Fingerprint"}</span>
         </button>
+
+        <div className="flex flex-col items-center gap-4 mb-6">
+          <GoogleButton onCredential={handleGoogleCredential} onError={setError} />
+          <div className="flex items-center gap-3 w-full">
+            <div className="h-px bg-canal-200 dark:bg-canal-700 flex-1" />
+            <span className="text-xs text-canal-400 font-medium">{t("or_sign_in_with_email")}</span>
+            <div className="h-px bg-canal-200 dark:bg-canal-700 flex-1" />
+          </div>
+        </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
           <div>
@@ -151,6 +185,13 @@ export default function AdminLogin() {
             {loading ? t("signing_in") : t("sign_in")}
           </button>
         </form>
+
+        {pendingChallenge && (
+          <PendingGoogleApprovalModal
+            challengeId={pendingChallenge}
+            onClose={() => setPendingChallenge(null)}
+          />
+        )}
       </motion.div>
     </div>
   );
