@@ -95,7 +95,7 @@ export default function WaterRequests() {
         request_date: data.request_date,
         crop: data.crop || null,
         remarks: data.remarks || null,
-        farmer_id: isFarmer ? 1 : Number(data.farmer_id || 1),
+        ...(isFarmer ? {} : { farmer_id: Number(data.farmer_id || 1) }),
       };
       await api.post("/api/requests", payload);
       reset();
