@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { KeyRound, CheckCircle2, AlertCircle, ShieldOff, History, Mail, User, Eye, EyeOff, Fingerprint, Trash2 } from "lucide-react";
+import { KeyRound, CheckCircle2, AlertCircle, ShieldOff, History, Mail, User, Eye, EyeOff, Fingerprint, Trash2, Users } from "lucide-react";
 import api from "../services/api";
 import { useLanguage } from "../context/LanguageContext";
 import { useAuth } from "../context/AuthContext";
@@ -69,6 +69,7 @@ export default function SettingsPage() {
       <ChangePasswordCard />
       <ChangeEmailCard />
       {isAdmin && <DeviceSecurityCard />}
+      {isAdmin && <RegisteredUsersCard />}
       {isAdmin && <LoginActivityCard />}
       {user?.role === "super_admin" && <DatabaseResetCard />}
     </div>
@@ -759,6 +760,93 @@ function DatabaseResetCard() {
         <Trash2 size={16} />
         {busy ? "Resetting..." : "Reset All Data"}
       </button>
+    </motion.div>
+  );
+}
+
+const ROLE_BADGE: Record<string, string> = {
+  super_admin: "bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300",
+  admin: "bg-canal-100 text-canal-700 dark:bg-canal-800 dark:text-canal-200",
+  water_operator: "bg-sky-100 text-sky-700 dark:bg-sky-900/50 dark:text-sky-200",
+  farmer: "bg-paddy-100 text-paddy-700 dark:bg-paddy-900/50 dark:text-paddy-200",
+  guest: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300",
+};
+
+function RegisteredUsersCard() {
+  const [users, setUsers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+
+  const load = () => {
+    setLoading(true);
+    api.get("/api/users").then((r) => {
+      setUsers(Array.isArray(r.data) ? r.data : []);
+    }).catch(() => {}).finally(() => setLoading(false));
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const filtered = users.filter((u) =>
+    u.email?.toLowerCase().includes(search.toLowerCase()) ||
+    u.full_name?.toLowerCase().includes(search.toLowerCase())
+  );
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="glass rounded-2xl p-5 flex flex-col gap-4">
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="font-display font-semibold flex items-center gap-2">
+          <Users size={18} className="text-canal-600" /> Registered Users
+        </h3>
+        <span className="text-xs text-canal-500">{users.length} total</span>
+      </div>
+      <p className="text-xs text-canal-500">All registered email accounts in the system.</p>
+
+      <input
+        type="text"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="Search by email or name..."
+        className="input text-sm"
+      />
+
+      {loading ? (
+        <p className="text-xs text-canal-400 text-center py-4">Loading...</p>
+      ) : filtered.length === 0 ? (
+        <p className="text-xs text-canal-400 text-center py-4">No users found.</p>
+      ) : (
+        <div className="overflow-x-auto rounded-xl border border-canal-200/50 dark:border-canal-700/50">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-canal-500 text-xs border-b border-canal-200/50 dark:border-canal-700/50 bg-white/30 dark:bg-canal-900/30">
+                <th className="py-2.5 px-3">#</th>
+                <th className="py-2.5 px-3">Name</th>
+                <th className="py-2.5 px-3">Email</th>
+                <th className="py-2.5 px-3">Role</th>
+                <th className="py-2.5 px-3">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((u, i) => (
+                <tr key={u.id} className="border-b border-canal-100/50 dark:border-canal-800/50 hover:bg-white/20 dark:hover:bg-canal-900/20 transition-colors">
+                  <td className="py-2.5 px-3 text-canal-400 text-xs">{i + 1}</td>
+                  <td className="py-2.5 px-3 font-medium">{u.full_name || "—"}</td>
+                  <td className="py-2.5 px-3 text-canal-600 dark:text-canal-300 font-mono text-xs">{u.email}</td>
+                  <td className="py-2.5 px-3">
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${ROLE_BADGE[u.role] || ROLE_BADGE.guest}`}>
+                      {u.role?.replace("_", " ")}
+                    </span>
+                  </td>
+                  <td className="py-2.5 px-3">
+                    <span className={`text-xs font-medium ${u.is_active ? "text-paddy-600 dark:text-paddy-400" : "text-rose-500"}`}>
+                      {u.is_active ? "✓ Active" : "✗ Inactive"}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </motion.div>
   );
 }
