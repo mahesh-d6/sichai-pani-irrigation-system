@@ -112,6 +112,8 @@ def create_request(
         farmer_id = farmer_profile.id
     else:
         farmer_id = payload.farmer_id
+        if not farmer_id:
+            raise HTTPException(400, "farmer_id is required for admin/operator requests")
 
     farmer = db.query(models.Farmer).filter(models.Farmer.id == farmer_id).first()
     if not farmer:

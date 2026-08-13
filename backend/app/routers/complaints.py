@@ -19,8 +19,17 @@ def list_complaints(
     current_user: models.User = Depends(get_current_user),
 ):
     q = db.query(models.Complaint)
-    if current_user.role == models.UserRole.farmer and current_user.farmer_profile:
-        q = q.filter(models.Complaint.farmer_id == current_user.farmer_profile.id)
+    if current_user.role == models.UserRole.farmer:
+        # Resolve farmer profile via relationship or DB lookup
+        farmer_profile = current_user.farmer_profile
+        if not farmer_profile:
+            farmer_profile = db.query(models.Farmer).filter(
+                (models.Farmer.user_id == current_user.id) |
+                (models.Farmer.email == current_user.email)
+            ).first()
+        if not farmer_profile:
+            return []  # No profile yet — return empty, not all complaints
+        q = q.filter(models.Complaint.farmer_id == farmer_profile.id)
     if status:
         q = q.filter(models.Complaint.status == status)
     if farmer_id:
@@ -29,21 +38,48 @@ def list_complaints(
 
 
 @router.post("", response_model=schemas.ComplaintOut, status_code=201)
-def create_complaint(payload: schemas.ComplaintCreate, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
-    # Same rule as water requests: a farmer can only ever file a
-    # complaint for themselves -- the farmer_id in the payload is
-    # ignored/overridden for farmer-role callers rather than trusted.
-    data = payload.model_dump()
+def create_complaint(
+    payload: schemas.ComplaintCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    # Farmers can only file complaints for themselves — resolve from token
     if current_user.role == models.UserRole.farmer:
-        if not current_user.farmer_profile:
-            raise HTTPException(403, "No farmer profile linked to this account")
-        data["farmer_id"] = current_user.farmer_profile.id
+        farmer_profile = current_user.farmer_profile
+        if not farmer_profile:
+            farmer_profile = db.query(models.Farmer).filter(
+                (models.Farmer.user_id == current_user.id) |
+                (models.Farmer.email == current_user.email)
+            ).first()
+        if not farmer_profile:
+            # Auto-create a minimal farmer profile
+            code = f"FARM-{current_user.id:04d}"
+            farmer_profile = models.Farmer(
+                user_id=current_user.id,
+                farmer_code=code,
+                full_name=current_user.full_name or "Farmer User",
+                mobile_number=current_user.mobile_number or "9800000000",
+                email=current_user.email,
+            )
+            db.add(farmer_profile)
+            db.commit()
+            db.refresh(farmer_profile)
+        farmer_id = farmer_profile.id
+    else:
+        farmer_id = payload.farmer_id
+        if not farmer_id:
+            raise HTTPException(400, "farmer_id is required for staff complaints")
 
-    farmer = db.query(models.Farmer).filter(models.Farmer.id == data["farmer_id"]).first()
+    farmer = db.query(models.Farmer).filter(models.Farmer.id == farmer_id).first()
     if not farmer:
         raise HTTPException(404, "Farmer not found")
 
-    complaint = models.Complaint(**data)
+    complaint = models.Complaint(
+        farmer_id=farmer_id,
+        category=payload.category,
+        description=payload.description,
+        photo_url=payload.photo_url,
+    )
     db.add(complaint)
     db.commit()
     db.refresh(complaint)

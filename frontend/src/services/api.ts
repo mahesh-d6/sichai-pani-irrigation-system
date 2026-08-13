@@ -1,24 +1,23 @@
 import axios from "axios";
 
-// Dynamically determine the backend URL
+// Dynamically determine the backend URL.
+// In production on Render, VITE_API_URL is injected at build time from the
+// backend service URL via render.yaml's `fromService` property.
+// In development, fall back to localhost.
 const getBaseUrl = () => {
   const envUrl = import.meta.env.VITE_API_URL;
-  // If explicitly configured with a remote production API URL, use it
-  if (envUrl && !envUrl.includes("localhost") && !envUrl.includes("127.0.0.1")) {
-    return envUrl;
-  }
-  // If running in production (e.g. deployed on Render static site)
-  if (import.meta.env.PROD) {
-    return "https://sichai-pani-irrigation-system.onrender.com";
+  if (envUrl && envUrl.trim() !== "") {
+    return envUrl.trim();
   }
   // Local development fallback
-  return envUrl || "http://127.0.0.1:8001";
+  return "http://127.0.0.1:8001";
 };
 
 export const API_BASE_URL = getBaseUrl();
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
+  timeout: 30000, // 30s timeout for slow Render cold starts
 });
 
 api.interceptors.request.use((config) => {

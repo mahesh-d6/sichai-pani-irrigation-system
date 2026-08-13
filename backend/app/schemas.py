@@ -238,7 +238,7 @@ class PumpOut(BaseModel):
 # ---------- Water Requests ----------
 
 class WaterRequestCreate(BaseModel):
-    farmer_id: int
+    farmer_id: Optional[int] = None
     request_date: dt.date
     start_time: Optional[dt.time] = None
     end_time: Optional[dt.time] = None
@@ -312,8 +312,9 @@ class PaymentOut(BaseModel):
 # ---------- Complaints ----------
 
 class ComplaintCreate(BaseModel):
-    farmer_id: int
+    farmer_id: Optional[int] = None
     category: str
+    title: Optional[str] = None
     description: Optional[str] = None
     photo_url: Optional[str] = None
 

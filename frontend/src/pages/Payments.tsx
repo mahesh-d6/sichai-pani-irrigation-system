@@ -65,17 +65,26 @@ export default function Payments() {
   const [unpaidRequests, setUnpaidRequests] = useState<UnpaidRequest[]>([]);
   const [showPayForm, setShowPayForm] = useState(false);
   const [verifyingId, setVerifyingId] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
 
   const load = () => {
-    api.get("/api/payments").then((r) => setPayments(r.data));
+    setLoading(true);
+    setLoadError("");
+    api.get("/api/payments")
+      .then((r) => setPayments(Array.isArray(r.data) ? r.data : []))
+      .catch((e) => setLoadError(e?.response?.data?.detail || "Could not load payments."))
+      .finally(() => setLoading(false));
     if (isFarmer) {
       api
         .get("/api/requests", { params: { payment_status: "pending" } })
-        .then((r) => setUnpaidRequests(r.data));
+        .then((r) => setUnpaidRequests(Array.isArray(r.data) ? r.data : []))
+        .catch(() => {});
     }
   };
 
   useEffect(load, [isFarmer]);
+
 
   const downloadReceipt = async (id: number, invoice?: string) => {
     const res = await api.get(`/api/payments/${id}/receipt.pdf`, { responseType: "blob" });
@@ -101,6 +110,18 @@ export default function Payments() {
 
   return (
     <div className="flex flex-col gap-5">
+      {loadError && (
+        <div className="glass rounded-2xl p-4 flex items-center gap-3 border border-rose-300 dark:border-rose-800 text-rose-600 dark:text-rose-400 text-sm">
+          ⚠️ {loadError}
+          <button onClick={load} className="ml-auto text-xs underline">Retry</button>
+        </div>
+      )}
+      {loading && (
+        <div className="flex items-center justify-center py-8 gap-3 text-canal-500">
+          <div className="w-5 h-5 border-2 border-canal-400 border-t-canal-600 rounded-full animate-spin" />
+          <span className="text-sm">Loading...</span>
+        </div>
+      )}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h2 className="font-display text-xl font-semibold">Payments</h2>
         <div className="flex items-center gap-3">
