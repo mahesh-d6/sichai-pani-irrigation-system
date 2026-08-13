@@ -82,7 +82,13 @@ export default function WaterRequests() {
     setLoadError("");
     api.get("/api/requests")
       .then((r) => setRequests(Array.isArray(r.data) ? r.data : []))
-      .catch((e) => setLoadError(e?.response?.data?.detail || "Could not load water requests. Please refresh."))
+      .catch((e) => {
+        const detail = e?.response?.data?.detail;
+        const msg = typeof detail === "string"
+          ? detail
+          : (Array.isArray(detail) ? detail.map((d: any) => d.msg).join(", ") : (e?.message || "Could not load water requests. Please refresh."));
+        setLoadError(msg);
+      })
       .finally(() => setPageLoading(false));
 
     if (!isFarmer) {
@@ -91,6 +97,7 @@ export default function WaterRequests() {
         .catch(() => {});
     }
   };
+
 
   useEffect(load, [isFarmer]);
 
@@ -112,11 +119,16 @@ export default function WaterRequests() {
       setShowForm(false);
       load();
     } catch (err: any) {
-      setFormError(err?.response?.data?.detail || "Could not submit water request. Please try again.");
+      const detail = err?.response?.data?.detail;
+      const msg = typeof detail === "string"
+        ? detail
+        : (Array.isArray(detail) ? detail.map((d: any) => d.msg).join(", ") : (err?.message || "Could not submit water request. Please try again."));
+      setFormError(msg);
     } finally {
       setSubmitting(false);
     }
   };
+
 
   const updateStatus = async (id: number, status: string) => {
     await api.patch(`/api/requests/${id}/status`, { status });

@@ -8,7 +8,7 @@ import io
 
 from .. import models, schemas
 from ..database import get_db
-from ..deps import get_current_user, require_roles, STAFF_ROLES
+from ..deps import get_current_user, require_roles, STAFF_ROLES, get_or_create_farmer_profile
 from ..config import settings
 from ..uploads import save_upload
 from ..notify import notify_roles
@@ -42,9 +42,10 @@ def list_payments(
     current_user: models.User = Depends(get_current_user),
 ):
     q = db.query(models.Payment)
-    if current_user.role == models.UserRole.farmer and current_user.farmer_profile:
-        q = q.filter(models.Payment.farmer_id == current_user.farmer_profile.id)
-    if farmer_id:
+    if current_user.role == models.UserRole.farmer:
+        farmer_profile = get_or_create_farmer_profile(db, current_user)
+        q = q.filter(models.Payment.farmer_id == farmer_profile.id)
+    elif farmer_id:
         q = q.filter(models.Payment.farmer_id == farmer_id)
     if status:
         q = q.filter(models.Payment.status == status)
@@ -72,7 +73,8 @@ def initiate_payment(
         raise HTTPException(404, "Water request not found")
 
     if current_user.role == models.UserRole.farmer:
-        if not current_user.farmer_profile or wr.farmer_id != current_user.farmer_profile.id:
+        farmer_profile = get_or_create_farmer_profile(db, current_user)
+        if wr.farmer_id != farmer_profile.id:
             raise HTTPException(403, "You can only pay for your own water requests")
 
     if method in METHODS_REQUIRING_PROOF and proof is None:

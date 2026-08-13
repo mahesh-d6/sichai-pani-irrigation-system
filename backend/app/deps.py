@@ -1,4 +1,5 @@
-from typing import List
+from typing import List, Optional
+import time
 from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
@@ -37,11 +38,6 @@ def get_current_user(
     if user is None or not user.is_active:
         raise credentials_exception
 
-    # Single-device enforcement for Admin (Sadasya) accounts: if this
-    # user's active_session_id has moved on (another device logged in and
-    # was allowed, or "Log Out Other Devices" was used), this token's
-    # session_id no longer matches -- treat it as logged out everywhere
-    # except the device that holds the current session.
     if user.role.value in ("super_admin", "admin") and user.active_session_id:
         token_session_id = payload.get("session_id")
         if token_session_id != user.active_session_id:
@@ -51,6 +47,51 @@ def get_current_user(
             )
 
     return user
+
+
+def get_or_create_farmer_profile(db: Session, user: models.User) -> models.Farmer:
+    """
+    Safely retrieves or creates a linked Farmer profile for any user with the farmer role.
+    Guarantees unique farmer_code and valid mobile_number to prevent DB integrity errors.
+    """
+    if user.farmer_profile:
+        return user.farmer_profile
+
+    # Look up existing profile by user_id or email
+    farmer = db.query(models.Farmer).filter(
+        (models.Farmer.user_id == user.id) |
+        (user.email.isnot(None) & (models.Farmer.email == user.email))
+    ).first()
+
+    if farmer:
+        if farmer.user_id != user.id:
+            farmer.user_id = user.id
+            db.commit()
+            db.refresh(farmer)
+        return farmer
+
+    # Generate unique farmer_code
+    base_code = f"FARM-{user.id:04d}"
+    code = base_code
+    idx = 1
+    while db.query(models.Farmer).filter(models.Farmer.farmer_code == code).first():
+        code = f"{base_code}-{idx}"
+        idx += 1
+
+    mobile = user.mobile_number or f"98{user.id:08d}"[:10]
+
+    farmer = models.Farmer(
+        user_id=user.id,
+        farmer_code=code,
+        full_name=user.full_name or "Farmer User",
+        mobile_number=mobile,
+        email=user.email,
+        is_active=True,
+    )
+    db.add(farmer)
+    db.commit()
+    db.refresh(farmer)
+    return farmer
 
 
 def require_roles(*roles: str):

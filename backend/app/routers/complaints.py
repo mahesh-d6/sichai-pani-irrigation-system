@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from .. import models, schemas
 from ..database import get_db
-from ..deps import get_current_user, require_roles, STAFF_ROLES
+from ..deps import get_current_user, require_roles, STAFF_ROLES, get_or_create_farmer_profile
 from ..notify import notify_roles
 
 router = APIRouter(prefix="/api/complaints", tags=["complaints"])
@@ -20,20 +20,13 @@ def list_complaints(
 ):
     q = db.query(models.Complaint)
     if current_user.role == models.UserRole.farmer:
-        # Resolve farmer profile via relationship or DB lookup
-        farmer_profile = current_user.farmer_profile
-        if not farmer_profile:
-            farmer_profile = db.query(models.Farmer).filter(
-                (models.Farmer.user_id == current_user.id) |
-                (models.Farmer.email == current_user.email)
-            ).first()
-        if not farmer_profile:
-            return []  # No profile yet — return empty, not all complaints
+        farmer_profile = get_or_create_farmer_profile(db, current_user)
         q = q.filter(models.Complaint.farmer_id == farmer_profile.id)
+    elif farmer_id:
+        q = q.filter(models.Complaint.farmer_id == farmer_id)
+
     if status:
         q = q.filter(models.Complaint.status == status)
-    if farmer_id:
-        q = q.filter(models.Complaint.farmer_id == farmer_id)
     return q.order_by(models.Complaint.id.desc()).all()
 
 
@@ -43,27 +36,8 @@ def create_complaint(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    # Farmers can only file complaints for themselves — resolve from token
     if current_user.role == models.UserRole.farmer:
-        farmer_profile = current_user.farmer_profile
-        if not farmer_profile:
-            farmer_profile = db.query(models.Farmer).filter(
-                (models.Farmer.user_id == current_user.id) |
-                (models.Farmer.email == current_user.email)
-            ).first()
-        if not farmer_profile:
-            # Auto-create a minimal farmer profile
-            code = f"FARM-{current_user.id:04d}"
-            farmer_profile = models.Farmer(
-                user_id=current_user.id,
-                farmer_code=code,
-                full_name=current_user.full_name or "Farmer User",
-                mobile_number=current_user.mobile_number or "9800000000",
-                email=current_user.email,
-            )
-            db.add(farmer_profile)
-            db.commit()
-            db.refresh(farmer_profile)
+        farmer_profile = get_or_create_farmer_profile(db, current_user)
         farmer_id = farmer_profile.id
     else:
         farmer_id = payload.farmer_id
