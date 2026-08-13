@@ -1,8 +1,10 @@
 import os
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+
 
 from .database import Base, engine
 from . import models  # noqa: F401  (ensures models are registered on Base)
@@ -123,6 +125,17 @@ app.include_router(notifications_router)
 app.include_router(announcements_router)
 
 
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    import traceback
+    print(f"[ERROR] Unhandled exception on {request.method} {request.url}: {exc}")
+    traceback.print_exc()
+    return JSONResponse(
+        status_code=500,
+        content={"detail": f"Internal Server Error: {str(exc)}"},
+    )
+
+
 @app.get("/api/health")
 def health_check():
     return {
@@ -131,3 +144,4 @@ def health_check():
         "database": engine.dialect.name,
         "google_signin_configured": bool(settings.google_client_id),
     }
+

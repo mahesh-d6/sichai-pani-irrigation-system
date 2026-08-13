@@ -57,11 +57,10 @@ def get_or_create_farmer_profile(db: Session, user: models.User) -> models.Farme
     if user.farmer_profile:
         return user.farmer_profile
 
-    # Look up existing profile by user_id or email
-    farmer = db.query(models.Farmer).filter(
-        (models.Farmer.user_id == user.id) |
-        (user.email.isnot(None) & (models.Farmer.email == user.email))
-    ).first()
+    farmer = db.query(models.Farmer).filter(models.Farmer.user_id == user.id).first()
+    if not farmer and user.email:
+        farmer = db.query(models.Farmer).filter(models.Farmer.email == user.email).first()
+
 
     if farmer:
         if farmer.user_id != user.id:
