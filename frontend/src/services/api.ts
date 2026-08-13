@@ -1,15 +1,19 @@
 import axios from "axios";
 
 // Dynamically determine the backend URL.
-// In production on Render, VITE_API_URL is injected at build time from the
-// backend service URL via render.yaml's `fromService` property.
-// In development, fall back to localhost.
+// In production on Render, VITE_API_URL is injected at build time via render.yaml.
+// A known production fallback is provided in case injection fails.
 const getBaseUrl = () => {
   const envUrl = import.meta.env.VITE_API_URL;
-  if (envUrl && envUrl.trim() !== "") {
+  // Use injected or explicitly set env var
+  if (envUrl && envUrl.trim() !== "" && !envUrl.includes("127.0.0.1") && !envUrl.includes("localhost")) {
     return envUrl.trim();
   }
-  // Local development fallback
+  // Production fallback — the Render backend service URL
+  if (import.meta.env.PROD) {
+    return "https://sichai-pani-backend.onrender.com";
+  }
+  // Local development
   return "http://127.0.0.1:8001";
 };
 

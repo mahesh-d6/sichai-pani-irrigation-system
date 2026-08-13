@@ -25,15 +25,9 @@ services:
     env: static
     region: singapore
     rootDir: frontend
-    buildCommand: npm install && npm run build
+    buildCommand: npm install && VITE_API_URL=https://sichai-pani-backend.onrender.com npm run build
     staticPublishPath: dist
     routes:
       - type: rewrite
         source: /*
         destination: /index.html
-    envVars:
-      - key: VITE_API_URL
-        fromService:
-          type: web
-          name: sichai-pani-backend
-          property: url
