@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { Plus, X, Droplets, CheckCircle2, XCircle, Calendar, Play, Pause, Square, Timer, ListChecks, Waves } from "lucide-react";
 import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
+import { useLanguage } from "../context/LanguageContext";
 
 interface Farmer {
   id: number;
@@ -62,6 +63,7 @@ import IrrigationCostEstimator from "../components/IrrigationCostEstimator";
 
 export default function WaterRequests() {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const isFarmer = user?.role === "farmer";
   const canOperate = !!user && OPERATOR_ROLES.includes(user.role);
 
@@ -167,12 +169,12 @@ export default function WaterRequests() {
       <IrrigationCostEstimator />
 
       <div className="flex items-center justify-between">
-        <h2 className="font-display text-xl font-semibold">Irrigation Requests</h2>
+        <h2 className="font-display text-xl font-semibold">{t("irrigation_requests")}</h2>
         <button
           onClick={() => setShowForm(true)}
           className="flex items-center gap-2 bg-canal-600 hover:bg-canal-700 text-white text-sm font-medium px-4 py-2 rounded-xl"
         >
-          <Plus size={16} /> New Request
+          <Plus size={16} /> {t("new_request")}
         </button>
       </div>
 
@@ -183,7 +185,7 @@ export default function WaterRequests() {
               <ListChecks className="text-white" size={18} />
             </div>
             <div>
-              <p className="text-xs text-canal-500">Awaiting Start</p>
+              <p className="text-xs text-canal-500">{t("awaiting_start")}</p>
               <p className="font-display text-xl font-semibold">{operatorStats.awaitingStart}</p>
             </div>
           </div>
@@ -192,7 +194,7 @@ export default function WaterRequests() {
               <Timer className="text-white" size={18} />
             </div>
             <div>
-              <p className="text-xs text-canal-500">Currently Running</p>
+              <p className="text-xs text-canal-500">{t("currently_running")}</p>
               <p className="font-display text-xl font-semibold">{operatorStats.inProgress}</p>
             </div>
           </div>
@@ -201,7 +203,7 @@ export default function WaterRequests() {
               <Waves className="text-white" size={18} />
             </div>
             <div>
-              <p className="text-xs text-canal-500">Total Hours Delivered</p>
+              <p className="text-xs text-canal-500">{t("total_hours_delivered")}</p>
               <p className="font-display text-xl font-semibold">{operatorStats.totalHoursDelivered} hrs</p>
             </div>
           </div>
@@ -211,20 +213,18 @@ export default function WaterRequests() {
       {showForm && (
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="glass rounded-2xl p-5 relative">
           <button onClick={() => { setShowForm(false); reset(); }} className="absolute top-4 right-4"><X size={18} /></button>
-          <h3 className="font-display font-semibold mb-1 flex items-center gap-2"><Droplets size={18} className="text-canal-600" /> Request Water</h3>
-          <p className="text-xs text-canal-500 mb-4">
-            Just let us know you need water and when. The Operator will start and stop delivery, and your bill is based on that actual time.
-          </p>
+          <h3 className="font-display font-semibold mb-1 flex items-center gap-2"><Droplets size={18} className="text-canal-600" /> {t("request_water")}</h3>
+          <p className="text-xs text-canal-500 mb-4">{t("request_water_desc")}</p>
           <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {!isFarmer && (
               <select {...register("farmer_id", { required: true })} className="input">
-                <option value="">Select Farmer</option>
+                <option value="">{t("select_farmer")}</option>
                 {farmers.map((f) => <option key={f.id} value={f.id}>{f.full_name} ({f.farmer_code})</option>)}
               </select>
             )}
             <input {...register("request_date", { required: true })} type="date" className="input" />
-            <input {...register("crop")} placeholder="Crop (e.g. Paddy / Wheat)" className="input" />
-            <input {...register("remarks")} placeholder="Remarks (optional)" className="input sm:col-span-2" />
+            <input {...register("crop")} placeholder={t("crop_placeholder")} className="input" />
+            <input {...register("remarks")} placeholder={t("remarks_optional")} className="input sm:col-span-2" />
 
             {formError && (
               <p className="sm:col-span-2 text-xs text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 p-2.5 rounded-xl border border-rose-200 dark:border-rose-800">
@@ -237,7 +237,7 @@ export default function WaterRequests() {
               disabled={submitting}
               className="sm:col-span-2 bg-paddy-600 hover:bg-paddy-700 text-white font-medium rounded-xl py-2.5 disabled:opacity-60 transition-colors shadow-sm"
             >
-              {submitting ? "Submitting Request..." : "Submit Request"}
+              {submitting ? t("submitting_request") : t("submit_request")}
             </button>
           </form>
         </motion.div>
@@ -247,15 +247,15 @@ export default function WaterRequests() {
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-canal-500 border-b border-canal-200/50 dark:border-canal-700/50">
-              {!isFarmer && <th className="py-3 px-4">Farmer</th>}
-              <th className="py-3 px-4"><Calendar size={13} className="inline mr-1" />Date</th>
-              <th className="py-3 px-4">Crop</th>
-              <th className="py-3 px-4"><Timer size={13} className="inline mr-1" />Actual Start–Stop</th>
-              <th className="py-3 px-4">Total Hours</th>
-              <th className="py-3 px-4">Amount</th>
-              <th className="py-3 px-4">Status</th>
-              <th className="py-3 px-4">Payment</th>
-              <th className="py-3 px-4">Actions</th>
+              {!isFarmer && <th className="py-3 px-4">{t("farmer_col")}</th>}
+              <th className="py-3 px-4"><Calendar size={13} className="inline mr-1" />{t("date_col")}</th>
+              <th className="py-3 px-4">{t("crop_col")}</th>
+              <th className="py-3 px-4"><Timer size={13} className="inline mr-1" />{t("actual_start_stop")}</th>
+              <th className="py-3 px-4">{t("total_hours_col")}</th>
+              <th className="py-3 px-4">{t("amount_col")}</th>
+              <th className="py-3 px-4">{t("status_col")}</th>
+              <th className="py-3 px-4">{t("payment_col")}</th>
+              <th className="py-3 px-4">{t("actions_col")}</th>
             </tr>
           </thead>
           <tbody>
@@ -267,19 +267,19 @@ export default function WaterRequests() {
                 <td className="py-3 px-4 font-medium text-xs">
                   {r.status === "in_progress" && (
                     <span>
-                      {fmtTime(r.actual_start_time)} – <span className="text-sky-600 dark:text-sky-400 font-semibold animate-pulse">Running...</span>
+                      {fmtTime(r.actual_start_time)} – <span className="text-sky-600 dark:text-sky-400 font-semibold animate-pulse">{t("running")}</span>
                     </span>
                   )}
                   {r.status === "paused" && (
                     <span className="text-amber-700 dark:text-amber-300 font-semibold flex items-center gap-1">
-                      <Pause size={13} className="animate-pulse" /> Paused (Power Cut)
+                      <Pause size={13} className="animate-pulse" /> {t("paused_power_cut")}
                     </span>
                   )}
                   {r.status === "completed" && (
                     <span>{fmtTime(r.actual_start_time)} – {fmtTime(r.actual_end_time)}</span>
                   )}
                   {r.status !== "in_progress" && r.status !== "paused" && r.status !== "completed" && (
-                    <span className="text-canal-400 font-normal">Not started</span>
+                    <span className="text-canal-400 font-normal">{t("not_started")}</span>
                   )}
                 </td>
                 <td className="py-3 px-4 font-medium">
@@ -288,7 +288,7 @@ export default function WaterRequests() {
                 <td className="py-3 px-4 font-medium">Rs.{r.total_amount}</td>
                 <td className="py-3 px-4">
                   <span className={`text-xs px-2.5 py-1 rounded-full font-medium capitalize ${STATUS_STYLES[r.status]}`}>
-                    {r.status === "paused" ? "⏸️ Paused (Power Cut)" : r.status.replace("_", " ")}
+                    {r.status === "paused" ? `⏸️ ${t("paused_power_cut")}` : r.status.replace("_", " ")}
                   </span>
                 </td>
                 <td className="py-3 px-4">
@@ -358,7 +358,7 @@ export default function WaterRequests() {
               </tr>
             ))}
             {requests.length === 0 && (
-              <tr><td colSpan={isFarmer ? 8 : 9} className="text-center py-8 text-canal-500">No irrigation requests yet.</td></tr>
+              <tr><td colSpan={isFarmer ? 8 : 9} className="text-center py-8 text-canal-500">{t("no_requests_yet")}</td></tr>
             )}
           </tbody>
         </table>
