@@ -71,16 +71,24 @@ export default function WaterRequests() {
   const [farmers, setFarmers] = useState<Farmer[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [busyId, setBusyId] = useState<number | null>(null);
+  const [pageLoading, setPageLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const { register, handleSubmit, reset } = useForm({
     defaultValues: { farmer_id: "", request_date: getTodayLocalDateString(), crop: "", remarks: "" },
   });
 
   const load = () => {
-    api.get("/api/requests").then((r) => setRequests(r.data));
-    // Farmers only ever get their own single record back from this
-    // endpoint now, so the picker below is skipped for them entirely.
+    setPageLoading(true);
+    setLoadError("");
+    api.get("/api/requests")
+      .then((r) => setRequests(Array.isArray(r.data) ? r.data : []))
+      .catch((e) => setLoadError(e?.response?.data?.detail || "Could not load water requests. Please refresh."))
+      .finally(() => setPageLoading(false));
+
     if (!isFarmer) {
-      api.get("/api/farmers").then((r) => setFarmers(r.data));
+      api.get("/api/farmers")
+        .then((r) => setFarmers(Array.isArray(r.data) ? r.data : []))
+        .catch(() => {});
     }
   };
 
@@ -167,6 +175,20 @@ export default function WaterRequests() {
   return (
     <div className="flex flex-col gap-5">
       <IrrigationCostEstimator />
+
+      {pageLoading && (
+        <div className="flex items-center justify-center py-12 text-canal-500 gap-3">
+          <div className="w-6 h-6 border-2 border-canal-400 border-t-canal-600 rounded-full animate-spin" />
+          <span className="text-sm">{t("loading")}</span>
+        </div>
+      )}
+
+      {loadError && !pageLoading && (
+        <div className="glass rounded-2xl p-4 flex items-center gap-3 border border-rose-300 dark:border-rose-800 text-rose-600 dark:text-rose-400 text-sm">
+          <span>⚠️ {loadError}</span>
+          <button onClick={load} className="ml-auto text-xs underline">Retry</button>
+        </div>
+      )}
 
       <div className="flex items-center justify-between">
         <h2 className="font-display text-xl font-semibold">{t("irrigation_requests")}</h2>

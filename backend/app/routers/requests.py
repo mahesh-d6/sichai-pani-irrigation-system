@@ -44,8 +44,18 @@ def list_requests(
     current_user: models.User = Depends(get_current_user),
 ):
     q = db.query(models.WaterRequest)
-    if current_user.role == models.UserRole.farmer and current_user.farmer_profile:
-        q = q.filter(models.WaterRequest.farmer_id == current_user.farmer_profile.id)
+    if current_user.role == models.UserRole.farmer:
+        farmer_profile = current_user.farmer_profile
+        if not farmer_profile:
+            # Look up by user_id or email as fallback
+            farmer_profile = db.query(models.Farmer).filter(
+                (models.Farmer.user_id == current_user.id) |
+                (models.Farmer.email == current_user.email)
+            ).first()
+        if not farmer_profile:
+            # No farmer profile yet — return empty list, not all requests
+            return []
+        q = q.filter(models.WaterRequest.farmer_id == farmer_profile.id)
     if farmer_id:
         q = q.filter(models.WaterRequest.farmer_id == farmer_id)
     if status:
