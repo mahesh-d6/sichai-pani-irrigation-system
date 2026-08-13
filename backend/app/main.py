@@ -19,14 +19,27 @@ app = FastAPI(
 # CSRF is mitigated via the SameSite cookie / bearer-token model used here
 # (no session cookies are used for API auth). XSS/SQLi protection relies on
 # React's default output-escaping and SQLAlchemy's parameterized queries.
+ALLOWED_ORIGINS = [
+    "https://sichai-pani-irrigation-system-1.onrender.com",
+    "https://sichai-pani-irrigation-system.onrender.com",
+    "https://sichai-pani-backend.onrender.com",
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:3000",
+    "http://localhost:8001",
+    "http://127.0.0.1:8001",
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_origin_regex=r".*",
+    allow_origins=ALLOWED_ORIGINS,
+    allow_origin_regex=r"https://.*\.onrender\.com",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 from .database import Base, engine, SessionLocal
 from .auth import hash_password
