@@ -670,3 +670,78 @@ def list_login_logs(
 ):
     """Admin-only view of login activity across all users."""
     return db.query(models.LoginLog).order_by(models.LoginLog.id.desc()).limit(500).all()
+
+
+# ---------------------------------------------------------------------------
+# Database Reset (Super Admin only)
+# ---------------------------------------------------------------------------
+
+@router.post("/admin/reset-database")
+def reset_database(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(require_roles("super_admin")),
+):
+    """
+    Wipes ALL data from every table and re-seeds only the two default
+    accounts (admin@sichaipani.com and operator@sichaipani.com) plus the
+    default Canal and Pump.  Only callable by the super_admin role.
+    """
+    # Delete in dependency order to avoid FK violations
+    db.query(models.Payment).delete()
+    db.query(models.WaterRequest).delete()
+    db.query(models.Complaint).delete()
+    db.query(models.Notification).delete()
+    db.query(models.LoginLog).delete()
+    db.query(models.LoginChallenge).delete()
+    db.query(models.AuditLog).delete()
+    db.query(models.Announcement).delete()
+    db.query(models.Farmer).delete()
+    db.query(models.Pump).delete()
+    db.query(models.Canal).delete()
+    db.query(models.Setting).delete()
+
+    # Delete all non-default users (keep only the two seeded accounts)
+    PROTECTED_EMAILS = {"admin@sichaipani.com", "operator@sichaipani.com"}
+    users_to_delete = db.query(models.User).filter(
+        models.User.email.notin_(list(PROTECTED_EMAILS))
+    ).all()
+    for u in users_to_delete:
+        db.delete(u)
+
+    db.commit()
+
+    # Re-seed default admin if somehow missing
+    if not db.query(models.User).filter(models.User.email == "admin@sichaipani.com").first():
+        db.add(models.User(
+            full_name="System Admin",
+            email="admin@sichaipani.com",
+            hashed_password=hash_password("Admin@123"),
+            role=models.UserRole.super_admin,
+            is_email_verified=True,
+            is_active=True,
+            failed_login_attempts=0,
+            locked_until=None,
+        ))
+
+    # Re-seed default operator if somehow missing
+    if not db.query(models.User).filter(models.User.email == "operator@sichaipani.com").first():
+        db.add(models.User(
+            full_name="Ramesh Operator",
+            email="operator@sichaipani.com",
+            hashed_password=hash_password("Operator@123"),
+            role=models.UserRole.water_operator,
+            is_email_verified=True,
+            is_active=True,
+            failed_login_attempts=0,
+            locked_until=None,
+        ))
+
+    # Re-seed default Canal and Pump
+    canal = models.Canal(name="Main Canal North", location="Sector 4")
+    db.add(canal)
+    db.commit()
+    db.refresh(canal)
+    db.add(models.Pump(name="Pump Station A", canal_id=canal.id))
+    db.commit()
+
+    return {"message": "Database reset successfully. All data wiped. Default accounts restored."}

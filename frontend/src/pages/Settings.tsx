@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { KeyRound, CheckCircle2, AlertCircle, ShieldOff, History, Mail, User, Eye, EyeOff, Fingerprint } from "lucide-react";
+import { KeyRound, CheckCircle2, AlertCircle, ShieldOff, History, Mail, User, Eye, EyeOff, Fingerprint, Trash2 } from "lucide-react";
 import api from "../services/api";
 import { useLanguage } from "../context/LanguageContext";
 import { useAuth } from "../context/AuthContext";
@@ -70,6 +70,7 @@ export default function SettingsPage() {
       <ChangeEmailCard />
       {isAdmin && <DeviceSecurityCard />}
       {isAdmin && <LoginActivityCard />}
+      {user?.role === "super_admin" && <DatabaseResetCard />}
     </div>
   );
 }
@@ -690,6 +691,74 @@ function LoginActivityCard() {
           </tbody>
         </table>
       </div>
+    </motion.div>
+  );
+}
+
+function DatabaseResetCard() {
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  const handleReset = async () => {
+    // First confirmation
+    const first = window.confirm(
+      "⚠️ WARNING: This will permanently delete ALL data:\n\n" +
+      "• All farmers\n• All water requests\n• All payments\n• All complaints\n• All users (except admin & operator)\n• All login history\n\n" +
+      "Only the default admin@sichaipani.com and operator@sichaipani.com will remain.\n\n" +
+      "Click OK to continue to the second confirmation."
+    );
+    if (!first) return;
+
+    // Second confirmation — must type RESET
+    const typed = window.prompt(
+      'Type RESET (in capital letters) to confirm you want to wipe all database data:'
+    );
+    if (typed !== "RESET") {
+      alert("Reset cancelled. You must type RESET exactly.");
+      return;
+    }
+
+    setBusy(true);
+    setMsg(null);
+    try {
+      const res = await api.post("/api/auth/admin/reset-database");
+      setMsg({ type: "success", text: res.data.message || "Database reset successfully!" });
+    } catch (e: any) {
+      setMsg({ type: "error", text: e?.response?.data?.detail || "Reset failed. Please try again." });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="glass rounded-2xl p-5 flex flex-col gap-4 border border-rose-300 dark:border-rose-800">
+      <h3 className="font-display font-semibold flex items-center gap-2 text-rose-700 dark:text-rose-400">
+        <Trash2 size={18} /> Reset Database
+      </h3>
+      <p className="text-xs text-canal-500">
+        Permanently wipe <strong>all farmers, water requests, payments, complaints, and users</strong> from the database.
+        Only the default admin and operator accounts will be kept. This action cannot be undone.
+      </p>
+
+      {msg && (
+        <div className={`text-sm rounded-xl px-4 py-3 flex items-center gap-2 ${
+          msg.type === "success"
+            ? "bg-paddy-50 dark:bg-paddy-950/40 text-paddy-700 dark:text-paddy-300 border border-paddy-200 dark:border-paddy-800"
+            : "bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800"
+        }`}>
+          {msg.type === "success" ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+          {msg.text}
+        </div>
+      )}
+
+      <button
+        onClick={handleReset}
+        disabled={busy}
+        className="flex items-center justify-center gap-2 bg-rose-600 hover:bg-rose-700 disabled:opacity-60 text-white font-semibold rounded-xl py-2.5 transition-colors shadow-md"
+      >
+        <Trash2 size={16} />
+        {busy ? "Resetting..." : "Reset All Data"}
+      </button>
     </motion.div>
   );
 }
