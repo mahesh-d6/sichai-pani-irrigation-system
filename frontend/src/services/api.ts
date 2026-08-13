@@ -21,7 +21,7 @@ export const API_BASE_URL = getBaseUrl();
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 30000, // 30s timeout for slow Render cold starts
+  timeout: 60000, // 60s timeout for slow Render free tier cold starts
 });
 
 api.interceptors.request.use((config) => {
