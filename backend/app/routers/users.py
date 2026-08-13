@@ -96,3 +96,39 @@ def toggle_active(
     db.commit()
     db.refresh(user)
     return user
+
+
+@router.delete("/{user_id}", status_code=204)
+def delete_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(require_roles("super_admin")),
+):
+    """
+    Permanently delete a user account (super_admin only).
+    The two default seeded accounts and the currently logged-in admin
+    are protected and cannot be deleted.
+    """
+    PROTECTED_EMAILS = {"admin@sichaipani.com", "operator@sichaipani.com"}
+
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(404, "User not found")
+    if user.email in PROTECTED_EMAILS:
+        raise HTTPException(403, "Cannot delete the default system accounts.")
+    if user.id == current_user.id:
+        raise HTTPException(403, "You cannot delete your own account.")
+
+    # Cascade: delete farmer profile data linked to this user
+    farmer = db.query(models.Farmer).filter(models.Farmer.user_id == user_id).first()
+    if farmer:
+        db.query(models.Payment).filter(models.Payment.farmer_id == farmer.id).delete()
+        db.query(models.WaterRequest).filter(models.WaterRequest.farmer_id == farmer.id).delete()
+        db.delete(farmer)
+
+    # Delete login history and notifications
+    db.query(models.LoginLog).filter(models.LoginLog.user_id == user_id).delete()
+    db.query(models.Notification).filter(models.Notification.user_id == user_id).delete()
+
+    db.delete(user)
+    db.commit()

@@ -772,10 +772,15 @@ const ROLE_BADGE: Record<string, string> = {
   guest: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300",
 };
 
+const PROTECTED_EMAILS = new Set(["admin@sichaipani.com", "operator@sichaipani.com"]);
+
 function RegisteredUsersCard() {
+  const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [msg, setMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   const load = () => {
     setLoading(true);
@@ -785,6 +790,21 @@ function RegisteredUsersCard() {
   };
 
   useEffect(() => { load(); }, []);
+
+  const handleDelete = async (u: any) => {
+    if (!window.confirm(`Remove "${u.full_name || u.email}" permanently?\n\nThis will also delete their farmer profile, water requests, and payments.`)) return;
+    setDeletingId(u.id);
+    setMsg(null);
+    try {
+      await api.delete(`/api/users/${u.id}`);
+      setMsg({ type: "success", text: `✓ "${u.full_name || u.email}" removed successfully.` });
+      load();
+    } catch (e: any) {
+      setMsg({ type: "error", text: e?.response?.data?.detail || "Could not remove user." });
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   const filtered = users.filter((u) =>
     u.email?.toLowerCase().includes(search.toLowerCase()) ||
@@ -800,6 +820,17 @@ function RegisteredUsersCard() {
         <span className="text-xs text-canal-500">{users.length} total</span>
       </div>
       <p className="text-xs text-canal-500">All registered email accounts in the system.</p>
+
+      {msg && (
+        <div className={`text-sm rounded-xl px-4 py-2.5 flex items-center gap-2 ${
+          msg.type === "success"
+            ? "bg-paddy-50 dark:bg-paddy-950/40 text-paddy-700 dark:text-paddy-300 border border-paddy-200 dark:border-paddy-800"
+            : "bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800"
+        }`}>
+          {msg.type === "success" ? <CheckCircle2 size={15} /> : <AlertCircle size={15} />}
+          {msg.text}
+        </div>
+      )}
 
       <input
         type="text"
@@ -823,26 +854,47 @@ function RegisteredUsersCard() {
                 <th className="py-2.5 px-3">Email</th>
                 <th className="py-2.5 px-3">Role</th>
                 <th className="py-2.5 px-3">Status</th>
+                <th className="py-2.5 px-3">Action</th>
               </tr>
             </thead>
             <tbody>
-              {filtered.map((u, i) => (
-                <tr key={u.id} className="border-b border-canal-100/50 dark:border-canal-800/50 hover:bg-white/20 dark:hover:bg-canal-900/20 transition-colors">
-                  <td className="py-2.5 px-3 text-canal-400 text-xs">{i + 1}</td>
-                  <td className="py-2.5 px-3 font-medium">{u.full_name || "—"}</td>
-                  <td className="py-2.5 px-3 text-canal-600 dark:text-canal-300 font-mono text-xs">{u.email}</td>
-                  <td className="py-2.5 px-3">
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${ROLE_BADGE[u.role] || ROLE_BADGE.guest}`}>
-                      {u.role?.replace("_", " ")}
-                    </span>
-                  </td>
-                  <td className="py-2.5 px-3">
-                    <span className={`text-xs font-medium ${u.is_active ? "text-paddy-600 dark:text-paddy-400" : "text-rose-500"}`}>
-                      {u.is_active ? "✓ Active" : "✗ Inactive"}
-                    </span>
-                  </td>
-                </tr>
-              ))}
+              {filtered.map((u, i) => {
+                const isProtected = PROTECTED_EMAILS.has(u.email) || u.id === currentUser?.id;
+                return (
+                  <tr key={u.id} className="border-b border-canal-100/50 dark:border-canal-800/50 hover:bg-white/20 dark:hover:bg-canal-900/20 transition-colors">
+                    <td className="py-2.5 px-3 text-canal-400 text-xs">{i + 1}</td>
+                    <td className="py-2.5 px-3 font-medium">{u.full_name || "—"}</td>
+                    <td className="py-2.5 px-3 text-canal-600 dark:text-canal-300 font-mono text-xs">{u.email}</td>
+                    <td className="py-2.5 px-3">
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${ROLE_BADGE[u.role] || ROLE_BADGE.guest}`}>
+                        {u.role?.replace("_", " ")}
+                      </span>
+                    </td>
+                    <td className="py-2.5 px-3">
+                      <span className={`text-xs font-medium ${u.is_active ? "text-paddy-600 dark:text-paddy-400" : "text-rose-500"}`}>
+                        {u.is_active ? "✓ Active" : "✗ Inactive"}
+                      </span>
+                    </td>
+                    <td className="py-2.5 px-3">
+                      {isProtected ? (
+                        <span className="text-xs text-canal-400 flex items-center gap-1">
+                          🔒 Protected
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => handleDelete(u)}
+                          disabled={deletingId === u.id}
+                          className="flex items-center gap-1 text-xs font-medium text-rose-600 hover:text-white hover:bg-rose-600 border border-rose-300 dark:border-rose-700 rounded-lg px-2.5 py-1 transition-colors disabled:opacity-50"
+                          title={`Remove ${u.email}`}
+                        >
+                          <Trash2 size={12} />
+                          {deletingId === u.id ? "Removing..." : "Remove"}
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
