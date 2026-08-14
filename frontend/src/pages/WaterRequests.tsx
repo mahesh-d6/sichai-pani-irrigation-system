@@ -28,7 +28,8 @@ interface WaterRequest {
   accumulated_seconds?: number | null;
 }
 
-const OPERATOR_ROLES = ["water_operator"];
+const OPERATOR_ROLES = ["super_admin", "admin", "water_operator"];
+
 
 const STATUS_STYLES: Record<string, string> = {
   pending: "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-200",

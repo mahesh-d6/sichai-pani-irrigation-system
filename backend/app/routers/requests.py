@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from .. import models, schemas
 from ..database import get_db
-from ..deps import get_current_user, require_roles, get_or_create_farmer_profile
+from ..deps import get_current_user, require_roles, get_or_create_farmer_profile, STAFF_ROLES
 from ..config import settings
 from ..notify import notify_roles
 
@@ -152,6 +152,91 @@ def update_status(
             else:
                 wr.actual_start_time = None
 
+    db.commit()
+    db.refresh(wr)
+    return wr
+
+
+@router.post("/{request_id}/start", response_model=schemas.WaterRequestOut)
+def start_water(
+    request_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(require_roles(*STAFF_ROLES)),
+):
+    wr = db.query(models.WaterRequest).filter(models.WaterRequest.id == request_id).first()
+    if not wr:
+        raise HTTPException(404, "Request not found")
+    now = dt.datetime.utcnow()
+    wr.status = models.RequestStatus.in_progress
+    wr.operator_id = current_user.id
+    if not wr.actual_start_time:
+        wr.actual_start_time = now
+    db.commit()
+    db.refresh(wr)
+    return wr
+
+
+@router.post("/{request_id}/pause", response_model=schemas.WaterRequestOut)
+def pause_water(
+    request_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(require_roles(*STAFF_ROLES)),
+):
+    wr = db.query(models.WaterRequest).filter(models.WaterRequest.id == request_id).first()
+    if not wr:
+        raise HTTPException(404, "Request not found")
+    now = dt.datetime.utcnow()
+    wr.status = models.RequestStatus.paused
+    if wr.actual_start_time:
+        delta = (now - wr.actual_start_time).total_seconds()
+        wr.accumulated_seconds = (wr.accumulated_seconds or 0.0) + delta
+        wr.actual_start_time = None
+    db.commit()
+    db.refresh(wr)
+    return wr
+
+
+@router.post("/{request_id}/resume", response_model=schemas.WaterRequestOut)
+def resume_water(
+    request_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(require_roles(*STAFF_ROLES)),
+):
+    wr = db.query(models.WaterRequest).filter(models.WaterRequest.id == request_id).first()
+    if not wr:
+        raise HTTPException(404, "Request not found")
+    now = dt.datetime.utcnow()
+    wr.status = models.RequestStatus.in_progress
+    wr.actual_start_time = now
+    db.commit()
+    db.refresh(wr)
+    return wr
+
+
+@router.post("/{request_id}/stop", response_model=schemas.WaterRequestOut)
+def stop_water(
+    request_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(require_roles(*STAFF_ROLES)),
+):
+    wr = db.query(models.WaterRequest).filter(models.WaterRequest.id == request_id).first()
+    if not wr:
+        raise HTTPException(404, "Request not found")
+    now = dt.datetime.utcnow()
+    wr.status = models.RequestStatus.completed
+    wr.actual_end_time = now
+
+    total_sec = wr.accumulated_seconds or 0.0
+    if wr.actual_start_time:
+        total_sec += (now - wr.actual_start_time).total_seconds()
+
+    wr.accumulated_seconds = total_sec
+    hrs = round((total_sec / 3600.0) * 4) / 4
+    if hrs < 0.25 and total_sec > 0:
+        hrs = 0.25
+    wr.actual_total_hours = hrs
+    wr.total_hours = hrs
+    wr.total_amount = round(hrs * wr.rate_per_hour, 2)
     db.commit()
     db.refresh(wr)
     return wr
