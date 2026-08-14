@@ -62,16 +62,20 @@ def create_pump(name: str, canal_id: int | None = None, db: Session = Depends(ge
     return pump
 
 
+from ..notify import check_and_notify_overdue_payments
+
 # ---------- Notifications ----------
 
 @notifications_router.get("", response_model=List[schemas.NotificationOut])
 def list_notifications(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    check_and_notify_overdue_payments(db)
     return (
         db.query(models.Notification)
         .filter(models.Notification.user_id == current_user.id)
         .order_by(models.Notification.id.desc())
         .all()
     )
+
 
 
 @notifications_router.patch("/{notification_id}/read")

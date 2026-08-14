@@ -7,7 +7,8 @@ from .. import models, schemas
 from ..database import get_db
 from ..deps import get_current_user, require_roles, get_or_create_farmer_profile, STAFF_ROLES
 from ..config import settings
-from ..notify import notify_roles
+from ..notify import notify_roles, notify_user
+
 
 router = APIRouter(prefix="/api/requests", tags=["water-requests"])
 
@@ -239,4 +240,15 @@ def stop_water(
     wr.total_amount = round(hrs * wr.rate_per_hour, 2)
     db.commit()
     db.refresh(wr)
+
+    farmer = db.query(models.Farmer).filter(models.Farmer.id == wr.farmer_id).first()
+    if farmer and farmer.user_id:
+        notify_user(
+            db,
+            farmer.user_id,
+            f"Water Request Completed (Request #{wr.id})",
+            f"Water delivery for {wr.crop or 'your crop'} is completed ({hrs} hrs). Total Bill: Rs.{wr.total_amount}. Please make your payment.",
+        )
+
     return wr
+
