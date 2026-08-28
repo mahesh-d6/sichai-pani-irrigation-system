@@ -77,7 +77,9 @@ def initiate_payment(
         if wr.farmer_id != farmer_profile.id:
             raise HTTPException(403, "You can only pay for your own water requests")
 
-    if method in METHODS_REQUIRING_PROOF and proof is None:
+    is_staff = current_user.role in (models.UserRole.super_admin, models.UserRole.admin, models.UserRole.water_operator)
+
+    if not is_staff and method in METHODS_REQUIRING_PROOF and proof is None:
         raise HTTPException(400, "Please upload proof of payment (screenshot or receipt) for this payment method")
 
     proof_url = None
@@ -86,15 +88,16 @@ def initiate_payment(
         proof_url = save_upload(proof, "payment_proofs")
         proof_uploaded_at = dt.datetime.utcnow()
 
+    # Staff-recorded payments or Cash payments are marked paid immediately.
+    # Farmer-submitted digital payments stay pending until verified by staff.
+    initial_status = models.PaymentStatus.paid if (is_staff or method == models.PaymentMethod.cash) else models.PaymentStatus.pending
+
     payment = models.Payment(
         water_request_id=wr.id,
         farmer_id=wr.farmer_id,
         amount=wr.total_amount,
         method=method,
-        # Cash is confirmed on the spot; everything else stays "pending"
-        # until staff verifies the uploaded proof (or a real gateway
-        # webhook confirms it -- see /webhook/{gateway} below).
-        status=models.PaymentStatus.pending if method != models.PaymentMethod.cash else models.PaymentStatus.paid,
+        status=initial_status,
         transaction_id=secrets.token_hex(8) if method != models.PaymentMethod.cash else None,
         invoice_number=_next_invoice_number(db),
         notes=notes,
@@ -105,6 +108,7 @@ def initiate_payment(
 
     if payment.status == models.PaymentStatus.paid:
         wr.payment_status = models.PaymentStatus.paid
+
 
     db.commit()
     db.refresh(payment)

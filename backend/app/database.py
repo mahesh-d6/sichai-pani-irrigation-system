@@ -1,3 +1,4 @@
+import os
 import time
 
 from sqlalchemy import create_engine
@@ -7,10 +8,6 @@ from .config import settings
 
 Base = declarative_base()
 
-# How many times (and how long between attempts) to retry the initial
-# MySQL connection before giving up. This smooths over the common
-# "app starts before the MySQL service is ready" race on first boot /
-# container startup, without masking a genuinely misconfigured DB.
 _CONNECT_RETRIES = 3
 _CONNECT_RETRY_DELAY_SECONDS = 1.5
 
@@ -26,50 +23,40 @@ def _try_connect(engine) -> bool:
 
 def _build_engine():
     """
-    Always attempts the configured DATABASE_URL first (retrying a few
-    times in case MySQL is still starting up). If it can't be reached:
-      - USE_SQLITE_FALLBACK=true  -> fall back to a local SQLite file so
-        the app stays runnable for local development/demos.
-      - USE_SQLITE_FALLBACK=false -> raise a clear, actionable error
-        instead of a bare connection traceback, since the user has
-        explicitly opted into requiring a real MySQL connection.
+    Builds the database engine.
+    1. Checks if a remote DATABASE_URL (MySQL/PostgreSQL) is provided and reachable.
+    2. Falls back to a persistent SQLite database in the backend/data/ directory.
     """
-    mysql_engine = create_engine(
-        settings.database_url,
-        pool_pre_ping=True,
-        pool_recycle=280,  # stay well under MySQL's default wait_timeout
-        connect_args={"connect_timeout": 5},
-    )
+    db_url = settings.database_url or ""
+    if db_url.startswith("postgres://"):
+        db_url = db_url.replace("postgres://", "postgresql://", 1)
 
-    connected = False
-    for attempt in range(1, _CONNECT_RETRIES + 1):
-        if _try_connect(mysql_engine):
-            connected = True
-            break
-        if attempt < _CONNECT_RETRIES:
-            time.sleep(_CONNECT_RETRY_DELAY_SECONDS)
+    if ("mysql" in db_url or "postgres" in db_url) and "localhost:3306" not in db_url:
+        try:
+            connect_args = {"connect_timeout": 5} if "mysql" in db_url else {}
+            engine = create_engine(
+                db_url,
+                pool_pre_ping=True,
+                pool_recycle=280,
+                connect_args=connect_args,
+            )
+            for attempt in range(1, _CONNECT_RETRIES + 1):
+                if _try_connect(engine):
+                    print(f"[sichai-pani] Connected to database at {_redact(db_url)}")
+                    return engine
+                if attempt < _CONNECT_RETRIES:
+                    time.sleep(_CONNECT_RETRY_DELAY_SECONDS)
+        except Exception as e:
+            print(f"[sichai-pani] Remote DB connection error: {e}")
 
-    if connected:
-        print(f"[sichai-pani] Connected to MySQL at {_redact(settings.database_url)}")
-        return mysql_engine
-
-    if settings.use_sqlite_fallback:
-        print(
-            "[sichai-pani] Could not connect to MySQL after "
-            f"{_CONNECT_RETRIES} attempts -- falling back to local SQLite "
-            "(dev only). Set USE_SQLITE_FALLBACK=false once MySQL is reachable."
-        )
-        return create_engine("sqlite:///./sichai_pani.db", connect_args={"check_same_thread": False})
-
-    raise RuntimeError(
-        "Could not connect to MySQL and USE_SQLITE_FALLBACK is disabled.\n"
-        f"  DATABASE_URL = {_redact(settings.database_url)}\n"
-        "  Checklist:\n"
-        "    1. Is the MySQL server running and reachable on that host/port?\n"
-        "    2. Do the username/password/database name in DATABASE_URL match a real account?\n"
-        "    3. Does the database itself exist? (see backend/schema.sql)\n"
-        "  Or set USE_SQLITE_FALLBACK=true in backend/.env to run locally without MySQL."
-    )
+    # Fallback to persistent SQLite file database in backend/data/ directory
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    data_dir = os.environ.get("DATA_DIR") or os.path.join(base_dir, "data")
+    os.makedirs(data_dir, exist_ok=True)
+    db_file_path = os.path.join(data_dir, "sichai_pani.db")
+    sqlite_url = f"sqlite:///{db_file_path}"
+    print(f"[sichai-pani] Using persistent SQLite database at: {db_file_path}")
+    return create_engine(sqlite_url, connect_args={"check_same_thread": False})
 
 
 def _redact(url: str) -> str:
