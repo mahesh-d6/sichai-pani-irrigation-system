@@ -29,7 +29,9 @@ interface UnpaidRequest {
   total_hours: number;
   crop?: string;
   status: string;
+  payment_status?: string;
 }
+
 
 interface Farmer {
   id: number;
@@ -91,8 +93,9 @@ export default function Payments() {
     api.get("/api/requests", { params: { payment_status: "pending" } })
       .then((r) => {
         const list: UnpaidRequest[] = Array.isArray(r.data) ? r.data : [];
-        // Only include requests that have a bill amount (> 0) or completed/stopped status
-        const validUnpaid = list.filter(req => req.total_amount > 0 || req.status === "completed");
+        // Only include completed water requests awaiting payment (water stopped, bill ready)
+        const validUnpaid = list.filter(req => req.status === "completed" && req.payment_status === "pending");
+
         setUnpaidRequests(validUnpaid);
       })
       .catch(() => {});

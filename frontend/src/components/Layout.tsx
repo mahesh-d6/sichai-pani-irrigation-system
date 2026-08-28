@@ -14,11 +14,11 @@ import MobileBottomNav from "./MobileBottomNav";
 import { requestNotificationPermission } from "../services/deviceNotification";
 import api from "../services/api";
 
-const NAV_ITEMS: { to: string; labelKey: TranslationKey; icon: typeof LayoutDashboard; end?: boolean; roles?: string[]; badgeKey?: "requests" | "complaints" }[] = [
+const NAV_ITEMS: { to: string; labelKey: TranslationKey; icon: typeof LayoutDashboard; end?: boolean; roles?: string[]; badgeKey?: "requests" | "payments" | "complaints" }[] = [
   { to: "/", labelKey: "nav_dashboard", icon: LayoutDashboard, end: true },
   { to: "/farmers", labelKey: "nav_farmers", icon: Users, roles: ["super_admin", "admin"] },
   { to: "/requests", labelKey: "nav_requests", icon: Droplets, badgeKey: "requests" },
-  { to: "/payments", labelKey: "nav_payments", icon: CreditCard, roles: ["super_admin", "admin", "farmer"] },
+  { to: "/payments", labelKey: "nav_payments", icon: CreditCard, roles: ["super_admin", "admin", "farmer"], badgeKey: "payments" },
   { to: "/complaints", labelKey: "nav_complaints", icon: MessageSquareWarning, roles: ["super_admin", "admin", "farmer"], badgeKey: "complaints" },
   { to: "/reports", labelKey: "nav_reports", icon: FileBarChart, roles: ["super_admin", "admin"] },
   { to: "/settings", labelKey: "nav_settings", icon: Settings },
@@ -31,6 +31,7 @@ export default function Layout() {
   const [dark, setDark] = useState(() => localStorage.getItem("sichai_theme") === "dark");
   const [mobileOpen, setMobileOpen] = useState(false);
   const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
+  const [pendingPaymentsCount, setPendingPaymentsCount] = useState(0);
   const [pendingComplaintsCount, setPendingComplaintsCount] = useState(0);
 
   useEffect(() => {
@@ -41,15 +42,22 @@ export default function Layout() {
 
   useEffect(() => {
     const fetchCounts = () => {
+      // Fetch water requests & compute badges
       api.get("/api/requests")
         .then((r) => {
           if (Array.isArray(r.data)) {
-            const count = r.data.filter((item: any) => item.status === "pending" || item.status === "in_progress").length;
-            setPendingRequestsCount(count);
+            // 🔴 1. Water Requests Red Dot: New requests awaiting start/delivery
+            const pendingReqs = r.data.filter((item: any) => item.status === "pending" || item.status === "approved").length;
+            setPendingRequestsCount(pendingReqs);
+
+            // 🔴 2. Payments Red Dot: Completed water requests where water was stopped and payment is pending!
+            const unpaidBills = r.data.filter((item: any) => item.status === "completed" && item.payment_status === "pending").length;
+            setPendingPaymentsCount(unpaidBills);
           }
         })
         .catch(() => {});
 
+      // 🔴 3. Complaints Red Dot: Open complaints
       api.get("/api/complaints")
         .then((r) => {
           if (Array.isArray(r.data)) {
@@ -61,7 +69,7 @@ export default function Layout() {
     };
 
     fetchCounts();
-    const interval = setInterval(fetchCounts, 15000);
+    const interval = setInterval(fetchCounts, 10000);
     return () => clearInterval(interval);
   }, []);
 
@@ -72,6 +80,7 @@ export default function Layout() {
 
   const badgeCounts = {
     requests: pendingRequestsCount,
+    payments: pendingPaymentsCount,
     complaints: pendingComplaintsCount,
   };
 
@@ -195,10 +204,9 @@ function SidebarContent({
   dark: boolean;
   setDark: (v: boolean) => void;
   onLogout: () => void;
-  badgeCounts: { requests: number; complaints: number };
+  badgeCounts: { requests: number; payments: number; complaints: number };
 }) {
   const { t } = useLanguage();
-
   const { user } = useAuth();
   const visibleItems = NAV_ITEMS.filter((item) => !item.roles || (user && item.roles.includes(user.role)));
 

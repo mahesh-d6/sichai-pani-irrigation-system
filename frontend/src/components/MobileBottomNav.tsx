@@ -4,16 +4,16 @@ import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
 import type { TranslationKey } from "../i18n/translations";
 
-const NAV_ITEMS: { to: string; labelKey: TranslationKey; icon: typeof LayoutDashboard; end?: boolean; roles?: string[]; badgeKey?: "requests" | "complaints" }[] = [
+const NAV_ITEMS: { to: string; labelKey: TranslationKey; icon: typeof LayoutDashboard; end?: boolean; roles?: string[]; badgeKey?: "requests" | "payments" | "complaints" }[] = [
   { to: "/", labelKey: "nav_dashboard", icon: LayoutDashboard, end: true },
   { to: "/requests", labelKey: "nav_requests", icon: Droplets, badgeKey: "requests" },
-  { to: "/payments", labelKey: "nav_payments", icon: CreditCard, roles: ["super_admin", "admin", "farmer"] },
+  { to: "/payments", labelKey: "nav_payments", icon: CreditCard, roles: ["super_admin", "admin", "farmer"], badgeKey: "payments" },
   { to: "/farmers", labelKey: "nav_farmers", icon: Users, roles: ["super_admin", "admin"] },
   { to: "/complaints", labelKey: "nav_complaints", icon: MessageSquareWarning, roles: ["super_admin", "admin", "farmer"], badgeKey: "complaints" },
   { to: "/settings", labelKey: "nav_settings", icon: Settings },
 ];
 
-export default function MobileBottomNav({ badgeCounts }: { badgeCounts?: { requests: number; complaints: number } }) {
+export default function MobileBottomNav({ badgeCounts }: { badgeCounts?: { requests: number; payments: number; complaints: number } }) {
   const { user } = useAuth();
   const { t } = useLanguage();
 
