@@ -23,15 +23,17 @@ def _try_connect(engine) -> bool:
 
 def _build_engine():
     """
-    Builds the database engine.
-    1. Checks if a remote/configured DATABASE_URL (MySQL, PostgreSQL, or Oracle Database 21c) is provided and reachable.
-    2. Falls back to a persistent SQLite database in the backend/data/ directory if configured DB is unconfigured or unreachable.
+    Builds the database engine for lifetime persistent data storage.
+    1. Checks if a custom DATABASE_URL (MySQL, PostgreSQL, or Oracle) is configured and reachable.
+    2. Falls back to a persistent SQLite database at backend/data/sichai_pani.db if configured DB is unreachable.
     """
-    db_url = settings.database_url or ""
+    db_url = (settings.database_url or "").strip()
     if db_url.startswith("postgres://"):
         db_url = db_url.replace("postgres://", "postgresql://", 1)
 
-    if ("mysql" in db_url or "postgres" in db_url or "oracle" in db_url) and "localhost:3306" not in db_url:
+    is_custom_db = any(k in db_url.lower() for k in ("mysql", "postgres", "oracle"))
+
+    if is_custom_db:
         try:
             connect_args = {"connect_timeout": 5} if "mysql" in db_url else {}
             engine = create_engine(
@@ -42,12 +44,13 @@ def _build_engine():
             )
             for attempt in range(1, _CONNECT_RETRIES + 1):
                 if _try_connect(engine):
-                    print(f"[sichai-pani] Connected to database at {_redact(db_url)}")
+                    print(f"[sichai-pani] Successfully connected to configured database at {_redact(db_url)}")
                     return engine
                 if attempt < _CONNECT_RETRIES:
                     time.sleep(_CONNECT_RETRY_DELAY_SECONDS)
+            print(f"[sichai-pani] Could not connect to configured DB at {_redact(db_url)} after {_CONNECT_RETRIES} attempts.")
         except Exception as e:
-            print(f"[sichai-pani] Database connection error: {e}")
+            print(f"[sichai-pani] Database engine connection error: {e}")
 
     # Fallback to persistent SQLite file database in backend/data/ directory
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -55,7 +58,7 @@ def _build_engine():
     os.makedirs(data_dir, exist_ok=True)
     db_file_path = os.path.join(data_dir, "sichai_pani.db")
     sqlite_url = f"sqlite:///{db_file_path}"
-    print(f"[sichai-pani] Using persistent SQLite database at: {db_file_path}")
+    print(f"[sichai-pani] Using persistent lifetime SQLite database at: {db_file_path}")
     return create_engine(sqlite_url, connect_args={"check_same_thread": False})
 
 
