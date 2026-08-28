@@ -24,14 +24,14 @@ def _try_connect(engine) -> bool:
 def _build_engine():
     """
     Builds the database engine.
-    1. Checks if a remote DATABASE_URL (MySQL/PostgreSQL) is provided and reachable.
-    2. Falls back to a persistent SQLite database in the backend/data/ directory.
+    1. Checks if a remote/configured DATABASE_URL (MySQL, PostgreSQL, or Oracle Database 21c) is provided and reachable.
+    2. Falls back to a persistent SQLite database in the backend/data/ directory if configured DB is unconfigured or unreachable.
     """
     db_url = settings.database_url or ""
     if db_url.startswith("postgres://"):
         db_url = db_url.replace("postgres://", "postgresql://", 1)
 
-    if ("mysql" in db_url or "postgres" in db_url) and "localhost:3306" not in db_url:
+    if ("mysql" in db_url or "postgres" in db_url or "oracle" in db_url) and "localhost:3306" not in db_url:
         try:
             connect_args = {"connect_timeout": 5} if "mysql" in db_url else {}
             engine = create_engine(
@@ -47,7 +47,7 @@ def _build_engine():
                 if attempt < _CONNECT_RETRIES:
                     time.sleep(_CONNECT_RETRY_DELAY_SECONDS)
         except Exception as e:
-            print(f"[sichai-pani] Remote DB connection error: {e}")
+            print(f"[sichai-pani] Database connection error: {e}")
 
     # Fallback to persistent SQLite file database in backend/data/ directory
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
