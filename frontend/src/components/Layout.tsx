@@ -9,20 +9,20 @@ import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
 import type { TranslationKey } from "../i18n/translations";
 import NotificationBell from "./NotificationBell";
-
-const NAV_ITEMS: { to: string; labelKey: TranslationKey; icon: typeof LayoutDashboard; end?: boolean; roles?: string[] }[] = [
-  { to: "/", labelKey: "nav_dashboard", icon: LayoutDashboard, end: true },
-  { to: "/farmers", labelKey: "nav_farmers", icon: Users, roles: ["super_admin", "admin"] },
-  { to: "/requests", labelKey: "nav_requests", icon: Droplets },
-  { to: "/payments", labelKey: "nav_payments", icon: CreditCard, roles: ["super_admin", "admin", "farmer"] },
-  { to: "/complaints", labelKey: "nav_complaints", icon: MessageSquareWarning, roles: ["super_admin", "admin", "farmer"] },
-  { to: "/reports", labelKey: "nav_reports", icon: FileBarChart, roles: ["super_admin", "admin"] },
-  { to: "/settings", labelKey: "nav_settings", icon: Settings },
-];
-
 import AnnouncementMarquee from "./AnnouncementMarquee";
 import MobileBottomNav from "./MobileBottomNav";
 import { requestNotificationPermission } from "../services/deviceNotification";
+import api from "../services/api";
+
+const NAV_ITEMS: { to: string; labelKey: TranslationKey; icon: typeof LayoutDashboard; end?: boolean; roles?: string[]; badgeKey?: "requests" | "complaints" }[] = [
+  { to: "/", labelKey: "nav_dashboard", icon: LayoutDashboard, end: true },
+  { to: "/farmers", labelKey: "nav_farmers", icon: Users, roles: ["super_admin", "admin"] },
+  { to: "/requests", labelKey: "nav_requests", icon: Droplets, badgeKey: "requests" },
+  { to: "/payments", labelKey: "nav_payments", icon: CreditCard, roles: ["super_admin", "admin", "farmer"] },
+  { to: "/complaints", labelKey: "nav_complaints", icon: MessageSquareWarning, roles: ["super_admin", "admin", "farmer"], badgeKey: "complaints" },
+  { to: "/reports", labelKey: "nav_reports", icon: FileBarChart, roles: ["super_admin", "admin"] },
+  { to: "/settings", labelKey: "nav_settings", icon: Settings },
+];
 
 export default function Layout() {
   const { user, logout } = useAuth();
@@ -30,6 +30,8 @@ export default function Layout() {
   const navigate = useNavigate();
   const [dark, setDark] = useState(() => localStorage.getItem("sichai_theme") === "dark");
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
+  const [pendingComplaintsCount, setPendingComplaintsCount] = useState(0);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark);
@@ -37,9 +39,40 @@ export default function Layout() {
     requestNotificationPermission();
   }, [dark]);
 
+  useEffect(() => {
+    const fetchCounts = () => {
+      api.get("/api/requests")
+        .then((r) => {
+          if (Array.isArray(r.data)) {
+            const count = r.data.filter((item: any) => item.status === "pending" || item.status === "in_progress").length;
+            setPendingRequestsCount(count);
+          }
+        })
+        .catch(() => {});
+
+      api.get("/api/complaints")
+        .then((r) => {
+          if (Array.isArray(r.data)) {
+            const count = r.data.filter((item: any) => item.status === "open" || item.status === "in_progress").length;
+            setPendingComplaintsCount(count);
+          }
+        })
+        .catch(() => {});
+    };
+
+    fetchCounts();
+    const interval = setInterval(fetchCounts, 15000);
+    return () => clearInterval(interval);
+  }, []);
+
   const handleLogout = () => {
     logout();
     navigate("/login");
+  };
+
+  const badgeCounts = {
+    requests: pendingRequestsCount,
+    complaints: pendingComplaintsCount,
   };
 
   return (
@@ -74,7 +107,13 @@ export default function Layout() {
       <div className="flex">
         {/* Sidebar - desktop */}
         <aside className="hidden lg:flex flex-col w-64 h-screen sticky top-0 glass-strong m-4 rounded-2xl p-5">
-          <SidebarContent onNavigate={() => {}} dark={dark} setDark={setDark} onLogout={handleLogout} />
+          <SidebarContent
+            onNavigate={() => {}}
+            dark={dark}
+            setDark={setDark}
+            onLogout={handleLogout}
+            badgeCounts={badgeCounts}
+          />
         </aside>
 
         {/* Sidebar - mobile drawer */}
@@ -94,7 +133,13 @@ export default function Layout() {
                 <button onClick={() => setMobileOpen(false)} className="absolute top-4 right-4 p-1">
                   <X size={20} />
                 </button>
-                <SidebarContent onNavigate={() => setMobileOpen(false)} dark={dark} setDark={setDark} onLogout={handleLogout} />
+                <SidebarContent
+                  onNavigate={() => setMobileOpen(false)}
+                  dark={dark}
+                  setDark={setDark}
+                  onLogout={handleLogout}
+                  badgeCounts={badgeCounts}
+                />
               </motion.aside>
             </>
           )}
@@ -138,17 +183,25 @@ export default function Layout() {
       </div>
 
       {/* Touch-optimized Mobile Bottom Navigation Bar */}
-      <MobileBottomNav />
+      <MobileBottomNav badgeCounts={badgeCounts} />
     </div>
   );
 }
 
 function SidebarContent({
-  onNavigate, dark, setDark, onLogout,
-}: { onNavigate: () => void; dark: boolean; setDark: (v: boolean) => void; onLogout: () => void }) {
-  const { t, lang, setLang } = useLanguage();
+  onNavigate, dark, setDark, onLogout, badgeCounts,
+}: {
+  onNavigate: () => void;
+  dark: boolean;
+  setDark: (v: boolean) => void;
+  onLogout: () => void;
+  badgeCounts: { requests: number; complaints: number };
+}) {
+  const { t } = useLanguage();
+
   const { user } = useAuth();
   const visibleItems = NAV_ITEMS.filter((item) => !item.roles || (user && item.roles.includes(user.role)));
+
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center gap-2 mb-8 px-1">
@@ -160,34 +213,39 @@ function SidebarContent({
       </div>
 
       <nav className="flex-1 flex flex-col gap-1">
-        {visibleItems.map(({ to, labelKey, icon: Icon, end }) => (
-          <NavLink
-            key={to}
-            to={to}
-            end={end}
-            onClick={onNavigate}
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
-                isActive
-                  ? "bg-canal-600 text-white shadow-md"
-                  : "text-earth-800 dark:text-canal-100 hover:bg-canal-100/70 dark:hover:bg-canal-800/50"
-              }`
-            }
-          >
-            <Icon size={18} />
-            {t(labelKey)}
-          </NavLink>
-        ))}
+        {visibleItems.map(({ to, labelKey, icon: Icon, end, badgeKey }) => {
+          const count = badgeKey ? badgeCounts[badgeKey] : 0;
+          return (
+            <NavLink
+              key={to}
+              to={to}
+              end={end}
+              onClick={onNavigate}
+              className={({ isActive }) =>
+                `flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                  isActive
+                    ? "bg-canal-600 text-white shadow-md"
+                    : "text-earth-800 dark:text-canal-100 hover:bg-canal-100/70 dark:hover:bg-canal-800/50"
+                }`
+              }
+            >
+              <div className="flex items-center gap-3">
+                <Icon size={18} />
+                <span>{t(labelKey)}</span>
+              </div>
+
+              {/* 🔴 Pulsing Red Notification Dot with Count */}
+              {count > 0 && (
+                <span className="w-5 h-5 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center animate-pulse shadow-xs">
+                  {count}
+                </span>
+              )}
+            </NavLink>
+          );
+        })}
       </nav>
 
       <div className="flex flex-col gap-2 pt-4 border-t border-canal-200/50 dark:border-canal-700/50">
-        <button
-          onClick={() => setLang(lang === "en" ? "ne" : "en")}
-          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium hover:bg-canal-100/70 dark:hover:bg-canal-800/50"
-        >
-          <Languages size={18} />
-          {lang === "en" ? "नेपाली" : "English"}
-        </button>
         <button
           onClick={() => setDark(!dark)}
           className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium hover:bg-canal-100/70 dark:hover:bg-canal-800/50"

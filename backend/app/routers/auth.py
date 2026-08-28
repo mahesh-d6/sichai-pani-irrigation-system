@@ -539,35 +539,40 @@ def google_login(payload: schemas.GoogleLoginRequest, request: Request, db: Sess
     if not user.is_active:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Account is disabled")
 
-    # If the user's Google account is NOT linked (unlinked or purged), require Admin Approval!
+    # Admins ARE the approver authority -- Admins never ask for approval!
+    # Only Operators and Farmers require Admin approval when Google ID or account email is unlinked/changed.
     if not user.google_id:
-        pub_id = secrets.token_urlsafe(16)
-        challenge = models.LoginChallenge(
-            public_id=pub_id,
-            user_id=user.id,
-            status=models.LoginChallengeStatus.pending,
-            requester_ip=get_client_ip(request),
-            requester_user_agent=request.headers.get("user-agent", "")[:250],
-        )
-        db.add(challenge)
-        db.commit()
-
-        # Notify Super Admins
-        admins = db.query(models.User).filter(models.User.role.in_(list(ADMIN_ROLES))).all()
-        for a in admins:
-            notify_user(
-                db, a.id,
-                "🔐 Pending Google Login Approval Request",
-                f"User '{user.full_name}' ({email or user.email}) requested Google Sign-in approval from IP {get_client_ip(request)}.",
+        if user.role in ADMIN_ROLES:
+            user.google_id = google_id
+            db.commit()
+        else:
+            pub_id = secrets.token_urlsafe(16)
+            challenge = models.LoginChallenge(
+                public_id=pub_id,
+                user_id=user.id,
+                status=models.LoginChallengeStatus.pending,
+                requester_ip=get_client_ip(request),
+                requester_user_agent=request.headers.get("user-agent", "")[:250],
             )
+            db.add(challenge)
+            db.commit()
 
-        _log(db, user.id, user.role.value, "google_approval_requested", request, details=pub_id)
+            # Notify Super Admins for Operator & Farmer approvals
+            admins = db.query(models.User).filter(models.User.role.in_(list(ADMIN_ROLES))).all()
+            for a in admins:
+                notify_user(
+                    db, a.id,
+                    "🔐 Pending Account/Email Approval Request",
+                    f"User '{user.full_name}' ({email or user.email}) ({user.role.value}) requested account/email approval.",
+                )
 
-        return schemas.AdminLoginResult(
-            status="pending_approval",
-            pending_challenge_id=pub_id,
-            message="Google Sign-in requires Admin approval. Request sent to Admin.",
-        )
+            _log(db, user.id, user.role.value, "approval_requested", request, details=pub_id)
+
+            return schemas.AdminLoginResult(
+                status="pending_approval",
+                pending_challenge_id=pub_id,
+                message="Account/email update requires Admin approval. Request sent to Admin.",
+            )
 
     if picture and not user.photo_url:
         user.photo_url = picture
@@ -575,6 +580,7 @@ def google_login(payload: schemas.GoogleLoginRequest, request: Request, db: Sess
 
     if user.role in ADMIN_ROLES:
         return _issue_admin_session_or_challenge(user, request, db)
+
 
     _register_successful_login(db, user, request)
     _log(db, user.id, user.role.value, "login_success", request, details="google")
