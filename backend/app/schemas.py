@@ -278,6 +278,9 @@ class WaterRequestOut(BaseModel):
     actual_end_time: Optional[dt.datetime] = None
     actual_total_hours: Optional[float] = None
     accumulated_seconds: Optional[float] = 0.0
+    farmer_name: Optional[str] = None
+    farmer_code: Optional[str] = None
+
 
 
 # ---------- Payments ----------

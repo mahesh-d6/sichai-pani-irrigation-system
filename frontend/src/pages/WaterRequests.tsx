@@ -1,10 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { motion } from "framer-motion";
-import { Plus, X, Droplets, CheckCircle2, XCircle, Calendar, Play, Pause, Square, Timer, ListChecks, Waves } from "lucide-react";
+import {
+  Plus, X, Droplets, CheckCircle2, XCircle, Calendar, Play, Pause, Square,
+  Timer, ListChecks, Waves, Users, User
+} from "lucide-react";
+
 import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
+import IrrigationCostEstimator from "../components/IrrigationCostEstimator";
 
 interface Farmer {
   id: number;
@@ -26,17 +31,18 @@ interface WaterRequest {
   actual_end_time?: string | null;
   actual_total_hours?: number | null;
   accumulated_seconds?: number | null;
+  farmer_name?: string | null;
+  farmer_code?: string | null;
 }
 
 const OPERATOR_ROLES = ["super_admin", "admin", "water_operator"];
-
 
 const STATUS_STYLES: Record<string, string> = {
   pending: "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-200",
   approved: "bg-canal-100 text-canal-700 dark:bg-canal-800 dark:text-canal-200",
   rejected: "bg-rose-100 text-rose-700 dark:bg-rose-900/50 dark:text-rose-200",
   rescheduled: "bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-200",
-  in_progress: "bg-sky-100 text-sky-700 dark:bg-sky-900/50 dark:text-sky-200",
+  in_progress: "bg-sky-100 text-sky-700 dark:bg-sky-900/50 dark:text-sky-200 border border-sky-400 animate-pulse",
   paused: "bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200",
   completed: "bg-paddy-100 text-paddy-700 dark:bg-paddy-900/60 dark:text-paddy-200",
 };
@@ -60,20 +66,20 @@ function getTodayLocalDateString() {
   return `${year}-${month}-${day}`;
 }
 
-import IrrigationCostEstimator from "../components/IrrigationCostEstimator";
-
 export default function WaterRequests() {
   const { user } = useAuth();
   const { t } = useLanguage();
   const isFarmer = user?.role === "farmer";
   const canOperate = !!user && OPERATOR_ROLES.includes(user.role);
 
-  const [requests, setRequests] = useState<WaterRequest[]>([]);
+  const [allRequests, setAllRequests] = useState<WaterRequest[]>([]);
   const [farmers, setFarmers] = useState<Farmer[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [busyId, setBusyId] = useState<number | null>(null);
   const [pageLoading, setPageLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
+  const [viewTab, setViewTab] = useState<"community" | "my">("community");
+
   const { register, handleSubmit, reset } = useForm({
     defaultValues: { farmer_id: "", request_date: getTodayLocalDateString(), crop: "", remarks: "" },
   });
@@ -81,8 +87,10 @@ export default function WaterRequests() {
   const load = () => {
     setPageLoading(true);
     setLoadError("");
-    api.get("/api/requests")
-      .then((r) => setRequests(Array.isArray(r.data) ? r.data : []))
+    
+    // Pass scope=all so all farmers & staff see community canal requests!
+    api.get("/api/requests", { params: { scope: "all" } })
+      .then((r) => setAllRequests(Array.isArray(r.data) ? r.data : []))
       .catch((e) => {
         const detail = e?.response?.data?.detail;
         const msg = typeof detail === "string"
@@ -98,7 +106,6 @@ export default function WaterRequests() {
         .catch(() => {});
     }
   };
-
 
   useEffect(load, [isFarmer]);
 
@@ -129,7 +136,6 @@ export default function WaterRequests() {
       setSubmitting(false);
     }
   };
-
 
   const updateStatus = async (id: number, status: string) => {
     await api.patch(`/api/requests/${id}/status`, { status });
@@ -176,18 +182,68 @@ export default function WaterRequests() {
     }
   };
 
-  const farmerName = (id: number) => farmers.find((f) => f.id === id)?.full_name || (isFarmer ? "You" : `Farmer #${id}`);
+  // Helper to format farmer name
+  const getFarmerName = (r: WaterRequest) => {
+    if (r.farmer_name) return r.farmer_name;
+    const f = farmers.find((item) => item.id === r.farmer_id);
+    if (f) return f.full_name;
+    return `Farmer #${r.farmer_id}`;
+  };
+
+  // Active water flow item across community
+  const activeWaterRequest = useMemo(() => {
+    return allRequests.find((r) => r.status === "in_progress" || r.status === "paused");
+  }, [allRequests]);
+
+  // Displayed requests depending on active tab
+  const displayedRequests = useMemo(() => {
+    if (viewTab === "my") {
+      // Find logged in user's farmer profile if farmer, else show all
+      return allRequests.filter((r) => r.farmer_name === user?.full_name || !isFarmer);
+    }
+    return allRequests;
+  }, [allRequests, viewTab, user, isFarmer]);
 
   const operatorStats = useMemo(() => {
-    const awaitingStart = requests.filter((r) => r.status === "approved").length;
-    const inProgress = requests.filter((r) => r.status === "in_progress").length;
-    const totalHoursDelivered = requests.reduce((sum, r) => sum + (r.actual_total_hours || 0), 0);
+    const awaitingStart = allRequests.filter((r) => r.status === "approved" || r.status === "pending").length;
+    const inProgress = allRequests.filter((r) => r.status === "in_progress").length;
+    const totalHoursDelivered = allRequests.reduce((sum, r) => sum + (r.actual_total_hours || 0), 0);
     return { awaitingStart, inProgress, totalHoursDelivered: Math.round(totalHoursDelivered * 100) / 100 };
-  }, [requests]);
+  }, [allRequests]);
 
   return (
     <div className="flex flex-col gap-5">
       <IrrigationCostEstimator />
+
+      {/* Live Canal Status Banner */}
+      <div className={`glass rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border ${activeWaterRequest ? "border-sky-400 bg-sky-500/10" : "border-canal-200 dark:border-canal-800"}`}>
+        <div className="flex items-center gap-3">
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white ${activeWaterRequest ? "bg-sky-600 animate-bounce" : "bg-canal-600"}`}>
+            <Waves size={20} />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="font-display font-semibold text-sm">
+                {activeWaterRequest ? "💧 Live Canal Water Flowing" : "ℹ️ Community Canal Status"}
+              </span>
+              {activeWaterRequest && (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-500 text-white uppercase tracking-wider">
+                  Active
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-canal-600 dark:text-canal-300 mt-0.5">
+              {activeWaterRequest ? (
+                <>
+                  Water is currently supplying <strong>{getFarmerName(activeWaterRequest)}</strong> {activeWaterRequest.crop ? `for ${activeWaterRequest.crop}` : ""} (Started: {fmtTime(activeWaterRequest.actual_start_time)})
+                </>
+              ) : (
+                "Canal is clear. Submit a request to queue up for irrigation water."
+              )}
+            </p>
+          </div>
+        </div>
+      </div>
 
       {pageLoading && (
         <div className="flex items-center justify-center py-12 text-canal-500 gap-3">
@@ -203,11 +259,39 @@ export default function WaterRequests() {
         </div>
       )}
 
-      <div className="flex items-center justify-between">
-        <h2 className="font-display text-xl font-semibold">{t("irrigation_requests")}</h2>
+      {/* Header & New Request Button */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          {/* Filter Tabs: Community Queue vs My Requests */}
+          <button
+            onClick={() => setViewTab("community")}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
+              viewTab === "community"
+                ? "bg-canal-600 text-white shadow-md"
+                : "glass text-canal-700 dark:text-canal-200 hover:bg-canal-100/50"
+            }`}
+          >
+            <Users size={14} />
+            Community Canal Queue ({allRequests.length})
+          </button>
+          {isFarmer && (
+            <button
+              onClick={() => setViewTab("my")}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
+                viewTab === "my"
+                  ? "bg-canal-600 text-white shadow-md"
+                  : "glass text-canal-700 dark:text-canal-200 hover:bg-canal-100/50"
+              }`}
+            >
+              <User size={14} />
+              My Requests ({allRequests.filter(r => r.farmer_name === user?.full_name).length})
+            </button>
+          )}
+        </div>
+
         <button
           onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 bg-canal-600 hover:bg-canal-700 text-white text-sm font-medium px-4 py-2 rounded-xl"
+          className="flex items-center justify-center gap-2 bg-canal-600 hover:bg-canal-700 text-white text-sm font-medium px-4 py-2 rounded-xl shadow-sm transition-colors"
         >
           <Plus size={16} /> {t("new_request")}
         </button>
@@ -216,8 +300,8 @@ export default function WaterRequests() {
       {canOperate && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="glass rounded-2xl p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-sky-600 flex items-center justify-center flex-shrink-0">
-              <ListChecks className="text-white" size={18} />
+            <div className="w-10 h-10 rounded-xl bg-sky-600 flex items-center justify-center flex-shrink-0 text-white">
+              <ListChecks size={18} />
             </div>
             <div>
               <p className="text-xs text-canal-500">{t("awaiting_start")}</p>
@@ -225,8 +309,8 @@ export default function WaterRequests() {
             </div>
           </div>
           <div className="glass rounded-2xl p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-600 flex items-center justify-center flex-shrink-0">
-              <Timer className="text-white" size={18} />
+            <div className="w-10 h-10 rounded-xl bg-amber-600 flex items-center justify-center flex-shrink-0 text-white">
+              <Timer size={18} />
             </div>
             <div>
               <p className="text-xs text-canal-500">{t("currently_running")}</p>
@@ -234,8 +318,8 @@ export default function WaterRequests() {
             </div>
           </div>
           <div className="glass rounded-2xl p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-paddy-600 flex items-center justify-center flex-shrink-0">
-              <Waves className="text-white" size={18} />
+            <div className="w-10 h-10 rounded-xl bg-paddy-600 flex items-center justify-center flex-shrink-0 text-white">
+              <Waves size={18} />
             </div>
             <div>
               <p className="text-xs text-canal-500">{t("total_hours_delivered")}</p>
@@ -278,11 +362,12 @@ export default function WaterRequests() {
         </motion.div>
       )}
 
+      {/* Main Table */}
       <div className="glass rounded-2xl overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-canal-500 border-b border-canal-200/50 dark:border-canal-700/50">
-              {!isFarmer && <th className="py-3 px-4">{t("farmer_col")}</th>}
+              <th className="py-3 px-4">{t("farmer_col")}</th>
               <th className="py-3 px-4"><Calendar size={13} className="inline mr-1" />{t("date_col")}</th>
               <th className="py-3 px-4">{t("crop_col")}</th>
               <th className="py-3 px-4"><Timer size={13} className="inline mr-1" />{t("actual_start_stop")}</th>
@@ -294,15 +379,22 @@ export default function WaterRequests() {
             </tr>
           </thead>
           <tbody>
-            {requests.map((r) => (
-              <tr key={r.id} className="border-b border-canal-100/50 dark:border-canal-800/50">
-                {!isFarmer && <td className="py-3 px-4 font-medium">{farmerName(r.farmer_id)}</td>}
-                <td className="py-3 px-4">{r.request_date}</td>
-                <td className="py-3 px-4">{r.crop || "-"}</td>
+            {displayedRequests.map((r) => (
+              <tr key={r.id} className="border-b border-canal-100/50 dark:border-canal-800/50 hover:bg-canal-50/40 dark:hover:bg-canal-900/30">
+                <td className="py-3 px-4 font-semibold text-canal-900 dark:text-canal-100">
+                  <div className="flex items-center gap-2">
+                    <span>{getFarmerName(r)}</span>
+                    {r.farmer_name === user?.full_name && (
+                      <span className="text-[10px] bg-canal-200 dark:bg-canal-800 text-canal-800 dark:text-canal-200 px-1.5 py-0.5 rounded font-bold">You</span>
+                    )}
+                  </div>
+                </td>
+                <td className="py-3 px-4 text-xs">{r.request_date}</td>
+                <td className="py-3 px-4 font-medium">{r.crop || "-"}</td>
                 <td className="py-3 px-4 font-medium text-xs">
                   {r.status === "in_progress" && (
-                    <span>
-                      {fmtTime(r.actual_start_time)} – <span className="text-sky-600 dark:text-sky-400 font-semibold animate-pulse">{t("running")}</span>
+                    <span className="text-sky-600 dark:text-sky-400 font-semibold">
+                      {fmtTime(r.actual_start_time)} – <span className="animate-pulse">💧 Water Running</span>
                     </span>
                   )}
                   {r.status === "paused" && (
@@ -320,14 +412,14 @@ export default function WaterRequests() {
                 <td className="py-3 px-4 font-medium">
                   {r.actual_total_hours != null ? `${r.actual_total_hours} hrs` : "-"}
                 </td>
-                <td className="py-3 px-4 font-medium">Rs.{r.total_amount}</td>
+                <td className="py-3 px-4 font-semibold text-emerald-600 dark:text-emerald-400">Rs.{r.total_amount}</td>
                 <td className="py-3 px-4">
                   <span className={`text-xs px-2.5 py-1 rounded-full font-medium capitalize ${STATUS_STYLES[r.status]}`}>
                     {r.status === "paused" ? `⏸️ ${t("paused_power_cut")}` : r.status.replace("_", " ")}
                   </span>
                 </td>
                 <td className="py-3 px-4">
-                  <span className={`text-xs px-2 py-1 rounded-full capitalize ${r.payment_status === "paid" ? "bg-paddy-100 text-paddy-700 dark:bg-paddy-900 dark:text-paddy-200" : "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-200"}`}>
+                  <span className={`text-xs px-2 py-1 rounded-full capitalize font-semibold ${r.payment_status === "paid" ? "bg-paddy-100 text-paddy-700 dark:bg-paddy-900 dark:text-paddy-200" : "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-200"}`}>
                     {r.payment_status}
                   </span>
                 </td>
@@ -392,8 +484,8 @@ export default function WaterRequests() {
                 </td>
               </tr>
             ))}
-            {requests.length === 0 && (
-              <tr><td colSpan={isFarmer ? 8 : 9} className="text-center py-8 text-canal-500">{t("no_requests_yet")}</td></tr>
+            {displayedRequests.length === 0 && (
+              <tr><td colSpan={9} className="text-center py-8 text-canal-500">{t("no_requests_yet")}</td></tr>
             )}
           </tbody>
         </table>

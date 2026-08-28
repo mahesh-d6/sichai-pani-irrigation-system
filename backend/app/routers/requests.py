@@ -33,13 +33,17 @@ def list_requests(
     payment_status: Optional[models.PaymentStatus] = None,
     date_from: Optional[dt.date] = None,
     date_to: Optional[dt.date] = None,
+    scope: Optional[str] = Query(None, description="Set to 'all' to show community-wide canal queue"),
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
     q = db.query(models.WaterRequest)
     if current_user.role == models.UserRole.farmer:
-        farmer_profile = get_or_create_farmer_profile(db, current_user)
-        q = q.filter(models.WaterRequest.farmer_id == farmer_profile.id)
+        if scope != "all" and not farmer_id:
+            farmer_profile = get_or_create_farmer_profile(db, current_user)
+            q = q.filter(models.WaterRequest.farmer_id == farmer_profile.id)
+        elif farmer_id:
+            q = q.filter(models.WaterRequest.farmer_id == farmer_id)
     elif farmer_id:
         q = q.filter(models.WaterRequest.farmer_id == farmer_id)
 
@@ -51,7 +55,24 @@ def list_requests(
         q = q.filter(models.WaterRequest.request_date >= date_from)
     if date_to:
         q = q.filter(models.WaterRequest.request_date <= date_to)
-    return q.order_by(models.WaterRequest.id.desc()).all()
+
+    raw_requests = q.order_by(models.WaterRequest.id.desc()).all()
+
+    # Map farmer names and codes so all farmers can see who requested water
+    farmer_map = {f.id: f for f in db.query(models.Farmer).all()}
+    enriched = []
+    for r in raw_requests:
+        item = schemas.WaterRequestOut.model_validate(r)
+        if r.farmer_id in farmer_map:
+            item.farmer_name = farmer_map[r.farmer_id].full_name
+            item.farmer_code = farmer_map[r.farmer_id].farmer_code
+        else:
+            item.farmer_name = f"Farmer #{r.farmer_id}"
+            item.farmer_code = f"FARM-{r.farmer_id:05d}"
+        enriched.append(item)
+
+    return enriched
+
 
 
 @router.post("/calculate")
